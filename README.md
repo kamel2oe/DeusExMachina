@@ -4,6 +4,8 @@
 
 My attempt at mixing machine learning with reading memory from a poker client.
 
+Will use tensorflow, C++, imgui and reverse engineering
+
 **Work in progress**
 
 Screenshots:
