@@ -2,7 +2,6 @@
 #include "DeusExMachina.h"
 #include <string>
 #include <random>
-#include "fonts.h"
 #include "Memory.h"
 
 // Forward declarations of functions included in this code module:
@@ -20,39 +19,15 @@ static LPDIRECT3D9              g_pD3D = NULL;
 static LPDIRECT3DDEVICE9        g_pd3dDevice = NULL;
 static D3DPRESENT_PARAMETERS    g_d3dpp = {};
 
-const char* pp_type(int type)
-{
-    switch (type)
-    {
-    case 99:  return "Clubs";
-    case 100: return "Diamonds";
-    case 104: return "Hearts";
-    case 115: return "Spades";
-    default:  return "";
-    }
-}
 
-const char* pp_number(int number)
+struct Image
 {
-    switch (number)
-    {
-    case 1:  return "One";
-    case 2:  return "Two";
-    case 3:  return "Three";
-    case 4:  return "Four";
-    case 5:  return "Five";
-    case 6:  return "Six";
-    case 7:  return "Seven";
-    case 8:  return "Eight";
-    case 9:  return "Nine";
-    case 10: return "Ten";
-    case 11: return "Jack";
-    case 12: return "Queen";
-    case 13: return "King";
-    case 14: return "Ace";
-    default: return "";
-    }
-}
+    std::string name;
+    int width;
+    int height;
+};
+
+std::vector<Image> images;
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                      _In_opt_ HINSTANCE hPrevInstance,
@@ -102,16 +77,18 @@ void Draw()
 
         ImGui::Text("Cards: %i", cards_on_display_count);
 
+
         for (int i = 0; i < 5; i++) {
             uint32_t current_card = (table_client_data + 0xB5C) + (0x8 * i);
 
             int card = mem->Read<int>(current_card);
             int type = mem->Read<int>(current_card + 0x4);
 
-            if (card == 0)
-                continue;
+            DrawCard(g_pd3dDevice, card, type);
+            //ImGui::Text("%s %s", pp_number(card), pp_type(type));
 
-            ImGui::Text("%s %s", pp_number(card), pp_type(type));
+            if (i != 4)
+                ImGui::SameLine();
         }
 
         ImGui::Columns(4, "mycolumns"); // 4-ways, with border
