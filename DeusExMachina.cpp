@@ -3,6 +3,7 @@
 #include <string>
 #include <random>
 #include "fonts.h"
+#include "Memory.h"
 
 // Forward declarations of functions included in this code module:
 BOOL                InitInstance(HINSTANCE);
@@ -26,6 +27,14 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     UNREFERENCED_PARAMETER(hPrevInstance);
     UNREFERENCED_PARAMETER(lpCmdLine);
     UNREFERENCED_PARAMETER(nCmdShow);
+
+    OpenConsole();
+
+    mem->FindProcess("PokerStars.exe");
+    mem->Open();
+
+    uint32_t chip_size = mem->Read<uint32_t>(0x0D793CB4);
+    printf("[chip_size] %i\n", chip_size);
 
     // Perform application initialization:
     if (!InitInstance(hInstance))
