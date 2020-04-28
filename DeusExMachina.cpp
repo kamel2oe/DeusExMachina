@@ -14,10 +14,45 @@ void CleanupDeviceD3D();
 void ResetDevice();
 int width = 1000;
 int height = 1000;
+uint64_t base_address;
 
 static LPDIRECT3D9              g_pD3D = NULL;
 static LPDIRECT3DDEVICE9        g_pd3dDevice = NULL;
 static D3DPRESENT_PARAMETERS    g_d3dpp = {};
+
+const char* pp_type(int type)
+{
+    switch (type)
+    {
+    case 99:  return "Clubs";
+    case 100: return "Diamonds";
+    case 104: return "Hearts";
+    case 115: return "Spades";
+    default:  return "";
+    }
+}
+
+const char* pp_number(int number)
+{
+    switch (number)
+    {
+    case 1:  return "One";
+    case 2:  return "Two";
+    case 3:  return "Three";
+    case 4:  return "Four";
+    case 5:  return "Five";
+    case 6:  return "Six";
+    case 7:  return "Seven";
+    case 8:  return "Eight";
+    case 9:  return "Nine";
+    case 10: return "Ten";
+    case 11: return "Jack";
+    case 12: return "Queen";
+    case 13: return "King";
+    case 14: return "Ace";
+    default: return "";
+    }
+}
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                      _In_opt_ HINSTANCE hPrevInstance,
@@ -33,8 +68,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     mem->FindProcess("PokerStars.exe");
     mem->Open();
 
-    uint32_t chip_size = mem->Read<uint32_t>(0x0D793CB4);
-    printf("[chip_size] %i\n", chip_size);
+    base_address = mem->FindModule("PokerStars.exe");
+    printf("[base_address] %016llX\n", base_address);
 
     // Perform application initialization:
     if (!InitInstance(hInstance))
@@ -54,9 +89,59 @@ void Draw()
 
     ImGui::Begin("##Backbuffer", nullptr, ImGuiWindowFlags_NoMouseInputs | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize);
     {
-        //ImGui::SetNextWindowPos(io.DisplaySize * 0.5f, ImGuiCond_FirstUseEver, ImVec2(0.5f, 0.5f));
+        uint32_t unk_1 = mem->Read<uint32_t>(base_address + 0x012D3DAC);
+        uint32_t unk_2 = mem->Read<uint32_t>(unk_1 + 0x50);
+        uint32_t unk_3 = mem->Read<uint32_t>(unk_2 + 0xB0);
+        uint32_t unk_4 = mem->Read<uint32_t>(unk_3 + 0x170);
+        uint32_t table_client_data = mem->Read<uint32_t>(unk_4 + 0x164);
 
-        ImGui::Text("Invalid login info\n");
+        uint32_t player_offset = 0xC08;
+        uint32_t player_size = 0x1F8;
+
+        uint32_t cards_on_display_count = mem->Read<uint32_t>(table_client_data + 0xB50);
+
+        ImGui::Text("Cards: %i", cards_on_display_count);
+
+        for (int i = 0; i < 5; i++) {
+            uint32_t current_card = (table_client_data + 0xB5C) + (0x8 * i);
+
+            int card = mem->Read<int>(current_card);
+            int type = mem->Read<int>(current_card + 0x4);
+
+            if (card == 0)
+                continue;
+
+            ImGui::Text("%s %s", pp_number(card), pp_type(type));
+        }
+
+        ImGui::Columns(4, "mycolumns"); // 4-ways, with border
+        ImGui::Separator();
+        ImGui::Text("Name"); ImGui::NextColumn();
+        ImGui::Text("Amount"); ImGui::NextColumn();
+        ImGui::Text("InPlay"); ImGui::NextColumn();
+        ImGui::Text("Total"); ImGui::NextColumn();
+        ImGui::Separator();
+
+        for (int i = 0; i < 9; i++)
+        {
+            uint32_t player = (table_client_data + 0xC08) + (player_size * i);
+
+            char name[15];
+            mem->ReadBuffer(player + 0x8, &name, sizeof(name));
+
+            uint64_t chip_size = mem->Read<uint64_t>(player + 0xB0);
+            uint64_t bet_amount = mem->Read<uint64_t>(player + 0xB8);
+
+            if (strlen(name) == 0)
+                continue;
+
+            ImGui::Text("%s", name); ImGui::NextColumn();
+            ImGui::Text("%i", chip_size); ImGui::NextColumn();
+            ImGui::Text("%i", bet_amount); ImGui::NextColumn();
+            ImGui::Text("%i", chip_size + bet_amount); ImGui::NextColumn();
+        }
+        ImGui::Columns(1);
+        ImGui::Separator();
     }
     ImGui::End();
 }

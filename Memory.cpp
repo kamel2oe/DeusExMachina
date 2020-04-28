@@ -49,3 +49,30 @@ uint32_t Memory::FindProcess(const std::string& name)
 
 	return found_process ? proc_entry.th32ProcessID : 0;
 }
+
+uint64_t Memory::FindModule(const std::string& name)
+{
+	const auto snap = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, process_id);
+	if (snap == INVALID_HANDLE_VALUE) {
+		printf("FindModule INVALID_HANDLE_VALUE\n");
+		return 0;
+	}
+
+	MODULEENTRY32 module_entry{};
+	module_entry.dwSize = sizeof module_entry;
+
+	auto found_module = false;
+	if (!!Module32First(snap, &module_entry)) {
+		do {
+			if (name == module_entry.szModule) {
+				printf("Found Module name: %s base: %016llX\n", module_entry.szModule, reinterpret_cast<uint64_t>(module_entry.modBaseAddr));
+				found_module = true;
+				break;
+			}
+		} while (!!Module32Next(snap, &module_entry));
+	}
+
+	CloseHandle(snap);
+
+	return found_module ? reinterpret_cast<uint64_t>(module_entry.modBaseAddr) : 0;
+}

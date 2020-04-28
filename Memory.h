@@ -23,6 +23,7 @@ public:
 
 	HANDLE   Open();
 	uint32_t FindProcess(const std::string& name);
+	uint64_t FindModule(const std::string& name);
 
 	template <typename T>
 	T Read(uint64_t address);
