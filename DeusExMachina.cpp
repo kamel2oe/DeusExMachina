@@ -14,6 +14,7 @@ void ResetDevice();
 int width = 1000;
 int height = 1000;
 uint64_t base_address;
+bool do_once = true;
 
 static LPDIRECT3D9              g_pD3D = NULL;
 static LPDIRECT3DDEVICE9        g_pd3dDevice = NULL;
@@ -55,9 +56,14 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 void Draw()
 {
-    bool show_demo_window = 1;
-    if (show_demo_window)
-        ImGui::ShowDemoWindow(&show_demo_window);
+    if (do_once) {
+        LoadImages(g_pd3dDevice);
+        do_once = false;
+    }
+
+    //bool show_demo_window = 1;
+    //if (show_demo_window)
+    //    ImGui::ShowDemoWindow(&show_demo_window);
 
     ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize(ImVec2(width, height), ImGuiCond_FirstUseEver);
@@ -77,15 +83,15 @@ void Draw()
 
         ImGui::Text("Cards: %i", cards_on_display_count);
 
-
         for (int i = 0; i < 5; i++) {
             uint32_t current_card = (table_client_data + 0xB5C) + (0x8 * i);
 
             int card = mem->Read<int>(current_card);
             int type = mem->Read<int>(current_card + 0x4);
 
-            DrawCard(g_pd3dDevice, card, type);
-            //ImGui::Text("%s %s", pp_number(card), pp_type(type));
+            ImGui::Image((void*)GetCardTexture(g_pd3dDevice, card, type), ImVec2(134 / 2, 186 / 2));
+
+            ImGui::Text("%i %i", card, type);
 
             if (i != 4)
                 ImGui::SameLine();
@@ -106,15 +112,23 @@ void Draw()
             char name[15];
             mem->ReadBuffer(player + 0x8, &name, sizeof(name));
 
-            uint64_t chip_size = mem->Read<uint64_t>(player + 0xB0);
-            uint64_t bet_amount = mem->Read<uint64_t>(player + 0xB8);
+            int chip_size = mem->Read<int>(player + 0xB0);
+            int bet_amount = mem->Read<int>(player + 0xB8);
 
             if (strlen(name) == 0)
                 continue;
 
             ImGui::Text("%s", name); ImGui::NextColumn();
             ImGui::Text("%i", chip_size); ImGui::NextColumn();
-            ImGui::Text("%i", bet_amount); ImGui::NextColumn();
+            if (bet_amount > 0 && chip_size > 0)
+            {
+                float percentage = (float)bet_amount / ((float)chip_size + (float)bet_amount);
+
+                ImGui::Text("%i (%.2f)", bet_amount, percentage * 100); ImGui::NextColumn();
+            }
+            else {
+                ImGui::Text("%i", bet_amount); ImGui::NextColumn();
+            }
             ImGui::Text("%i", chip_size + bet_amount); ImGui::NextColumn();
         }
         ImGui::Columns(1);
