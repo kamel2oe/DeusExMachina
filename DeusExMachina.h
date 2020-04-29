@@ -129,36 +129,60 @@ void RemoveConsole()
     FreeConsole();
 }
 
+enum CardType : int
+{
+    Clubs = 99,
+    Diamonds = 100,
+    Hearts = 104,
+    Spades = 115
+};
+
 const char* pp_type(int type)
 {
     switch (type)
     {
-    case 99:  return "Clubs";
-    case 100: return "Diamonds";
-    case 104: return "Hearts";
-    case 115: return "Spades";
+    case CardType::Clubs:  return "Clubs";
+    case CardType::Diamonds: return "Diamonds";
+    case CardType::Hearts: return "Hearts";
+    case CardType::Spades: return "Spades";
     default:  return "";
     }
 }
+
+enum CardNumber : int
+{
+    Two = 2,
+    Three,
+    Four,
+    Five,
+    Six,
+    Seven,
+    Eight,
+    Nine,
+    Ten,
+    Jack,
+    Queen,
+    King,
+    Ace
+};
 
 const char* pp_number(int number)
 {
     switch (number)
     {
-    case 1:  return "One";
-    case 2:  return "Two";
-    case 3:  return "Three";
-    case 4:  return "Four";
-    case 5:  return "Five";
-    case 6:  return "Six";
-    case 7:  return "Seven";
-    case 8:  return "Eight";
-    case 9:  return "Nine";
-    case 10: return "Ten";
-    case 11: return "Jack";
-    case 12: return "Queen";
-    case 13: return "King";
-    case 14: return "Ace";
+    case CardNumber::Two:   return "Two";
+    case CardNumber::Three: return "Three";
+    case CardNumber::Four:  return "Four";
+    case CardNumber::Five:  return "Five";
+    case CardNumber::Six:   return "Six";
+    case CardNumber::Seven: return "Seven";
+    case CardNumber::Eight: return "Eight";
+    case CardNumber::Nine:  return "Nine";
+    case CardNumber::Ten:   return "Ten";
+    case CardNumber::Jack:  return "Jack";
+    case CardNumber::Queen: return "Queen";
+    case CardNumber::King:  return "King";
+    case CardNumber::Ace:   return "Ace";
     default: return "";
     }
 }

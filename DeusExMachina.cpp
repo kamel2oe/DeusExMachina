@@ -63,7 +63,7 @@ void Draw()
 
     //bool show_demo_window = 1;
     //if (show_demo_window)
-    //    ImGui::ShowDemoWindow(&show_demo_window);
+    //   ImGui::ShowDemoWindow(&show_demo_window);
 
     ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize(ImVec2(width, height), ImGuiCond_FirstUseEver);
@@ -90,6 +90,7 @@ void Draw()
             int type = mem->Read<int>(current_card + 0x4);
 
             ImGui::Image((void*)GetCardTexture(g_pd3dDevice, card, type), ImVec2(134 / 3, 186 / 3));
+            //ImGui::Text("%s of %s", pp_number(card), pp_type(type));
 
             if (i != 4)
                 ImGui::SameLine();
@@ -116,18 +117,41 @@ void Draw()
             if (strlen(name) == 0)
                 continue;
 
-            ImGui::Text("%s", name); ImGui::NextColumn();
-            ImGui::Text("%i", chip_size); ImGui::NextColumn();
+            ImGui::Text("%s", name); 
+            int one_number = mem->Read<int>(player + 0xF0);
+            int one_type = mem->Read<int>(player + 0xF0 + 0x4);
+
+            int two_number = mem->Read<int>(player + 0xF0 + 0x8);
+            int two_type = mem->Read<int>(player + 0xF0 + 0xC);
+
+            ImGui::Image((void*)GetCardTexture(g_pd3dDevice, one_number, one_type), ImVec2(134 / 3, 186 / 3));
+            ImGui::SameLine();
+            ImGui::Image((void*)GetCardTexture(g_pd3dDevice, two_number, two_type), ImVec2(134 / 3, 186 / 3));
+
+            ImGui::NextColumn();
+
+            ImGui::Text("%i", chip_size); 
+            ImGui::NextColumn();
+
             if (bet_amount > 0 && chip_size > 0)
             {
                 float percentage = (float)bet_amount / ((float)chip_size + (float)bet_amount);
 
-                ImGui::Text("%i (%.2f)", bet_amount, percentage * 100); ImGui::NextColumn();
+                ImGui::Text("%i (%.2f)", bet_amount, percentage * 100);
+
+                char buf[32];
+                sprintf_s(buf, "%.2f%%", percentage * 100);
+                ImGui::ProgressBar(percentage, ImVec2(0.0f, 0.0f), buf);
+                ImGui::NextColumn();
             }
             else {
-                ImGui::Text("%i", bet_amount); ImGui::NextColumn();
+                //ImGui::Text("%i", bet_amount); ImGui::NextColumn();
+                ImGui::NextColumn();
             }
+
             ImGui::Text("%i", chip_size + bet_amount); ImGui::NextColumn();
+
+            
         }
         ImGui::Columns(1);
         ImGui::Separator();
