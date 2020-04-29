@@ -89,9 +89,7 @@ void Draw()
             int card = mem->Read<int>(current_card);
             int type = mem->Read<int>(current_card + 0x4);
 
-            ImGui::Image((void*)GetCardTexture(g_pd3dDevice, card, type), ImVec2(134 / 2, 186 / 2));
-
-            ImGui::Text("%i %i", card, type);
+            ImGui::Image((void*)GetCardTexture(g_pd3dDevice, card, type), ImVec2(134 / 3, 186 / 3));
 
             if (i != 4)
                 ImGui::SameLine();
