@@ -4,6 +4,8 @@
 #include <random>
 #include "Memory.h"
 
+#include "eval/SevenEval.h"
+
 // Forward declarations of functions included in this code module:
 BOOL                InitInstance(HINSTANCE);
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
@@ -40,6 +42,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     UNREFERENCED_PARAMETER(nCmdShow);
 
     OpenConsole();
+
+    std::cout << SevenEval::GetRank(0, 4, 8, 12, 16, 20, 24) << std::endl;
 
     mem->FindProcess("PokerStars.exe");
     mem->Open();
@@ -80,8 +84,10 @@ void Draw()
         uint32_t player_size = 0x1F8;
 
         uint32_t cards_on_display_count = mem->Read<uint32_t>(table_client_data + 0xB50);
+        uint32_t pot_size = mem->Read<uint32_t>(table_client_data + 0x234);
 
         ImGui::Text("Cards: %i", cards_on_display_count);
+        ImGui::Text("Pot: %i", pot_size);
 
         for (int i = 0; i < 5; i++) {
             uint32_t current_card = (table_client_data + 0xB5C) + (0x8 * i);
@@ -96,12 +102,14 @@ void Draw()
                 ImGui::SameLine();
         }
 
-        ImGui::Columns(4, "mycolumns"); // 4-ways, with border
+        ImGui::Columns(6, "mycolumns"); // 4-ways, with border
         ImGui::Separator();
         ImGui::Text("Name"); ImGui::NextColumn();
         ImGui::Text("Amount"); ImGui::NextColumn();
-        ImGui::Text("InPlay"); ImGui::NextColumn();
+        ImGui::Text("InPlay Current Hand"); ImGui::NextColumn();
+        ImGui::Text("InPlay Total"); ImGui::NextColumn();
         ImGui::Text("Total"); ImGui::NextColumn();
+        ImGui::Text("State"); ImGui::NextColumn();
         ImGui::Separator();
 
         for (int i = 0; i < 9; i++)
@@ -111,47 +119,40 @@ void Draw()
             char name[15];
             mem->ReadBuffer(player + 0x8, &name, sizeof(name));
 
-            int chip_size = mem->Read<int>(player + 0xB0);
-            int bet_amount = mem->Read<int>(player + 0xB8);
-
             if (strlen(name) == 0)
                 continue;
 
             ImGui::Text("%s", name); 
+
             int one_number = mem->Read<int>(player + 0xF0);
             int one_type = mem->Read<int>(player + 0xF0 + 0x4);
 
             int two_number = mem->Read<int>(player + 0xF0 + 0x8);
             int two_type = mem->Read<int>(player + 0xF0 + 0xC);
 
-            ImGui::Image((void*)GetCardTexture(g_pd3dDevice, one_number, one_type), ImVec2(134 / 3, 186 / 3));
+            ImGui::Image((void*)GetCardTexture(g_pd3dDevice, one_number, one_type), ImVec2(134 / 4, 186 / 4));
             ImGui::SameLine();
-            ImGui::Image((void*)GetCardTexture(g_pd3dDevice, two_number, two_type), ImVec2(134 / 3, 186 / 3));
-
+            ImGui::Image((void*)GetCardTexture(g_pd3dDevice, two_number, two_type), ImVec2(134 / 4, 186 / 4));
             ImGui::NextColumn();
 
+            int chip_size = mem->Read<int>(player + 0xB0);
             ImGui::Text("%i", chip_size); 
             ImGui::NextColumn();
 
-            if (bet_amount > 0 && chip_size > 0)
-            {
-                float percentage = (float)bet_amount / ((float)chip_size + (float)bet_amount);
+            int bet_amount = mem->Read<int>(player + 0xB8);
+            ImGui::Text("%i", bet_amount);
+            ImGui::NextColumn();
 
-                ImGui::Text("%i (%.2f)", bet_amount, percentage * 100);
+            int bet_total = mem->Read<int>(player + 0x88);
+            ImGui::Text("%i", bet_total);
+            ImGui::NextColumn();
 
-                char buf[32];
-                sprintf_s(buf, "%.2f%%", percentage * 100);
-                ImGui::ProgressBar(percentage, ImVec2(0.0f, 0.0f), buf);
-                ImGui::NextColumn();
-            }
-            else {
-                //ImGui::Text("%i", bet_amount); ImGui::NextColumn();
-                ImGui::NextColumn();
-            }
+            ImGui::Text("%i", chip_size + bet_amount); 
+            ImGui::NextColumn();
 
-            ImGui::Text("%i", chip_size + bet_amount); ImGui::NextColumn();
-
-            
+            int state = mem->Read<int>(player + 0xD0);
+            ImGui::Text("%s", state == 1 ? "FOLDED/SITTING OUT" : "IN");
+            ImGui::NextColumn();
         }
         ImGui::Columns(1);
         ImGui::Separator();

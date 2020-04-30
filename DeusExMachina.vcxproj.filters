@@ -16,6 +16,9 @@
     <Filter Include="imgui">
       <UniqueIdentifier>{a4b8f96a-30dd-4c30-9a33-548fbefe699f}</UniqueIdentifier>
     </Filter>
+    <Filter Include="eval">
+      <UniqueIdentifier>{d0d610cc-9001-48ce-a410-6e1d2bcef67c}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="framework.h">
@@ -63,6 +66,27 @@
     <ClInclude Include="images.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="eval\RankHash.h">
+      <Filter>eval</Filter>
+    </ClInclude>
+    <ClInclude Include="eval\RankOffsets.h">
+      <Filter>eval</Filter>
+    </ClInclude>
+    <ClInclude Include="eval\SevenEval.h">
+      <Filter>eval</Filter>
+    </ClInclude>
+    <ClInclude Include="eval\Constants.h">
+      <Filter>eval</Filter>
+    </ClInclude>
+    <ClInclude Include="eval\Deckcards.h">
+      <Filter>eval</Filter>
+    </ClInclude>
+    <ClInclude Include="eval\FlushCheck.h">
+      <Filter>eval</Filter>
+    </ClInclude>
+    <ClInclude Include="eval\FlushRanks.h">
+      <Filter>eval</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DeusExMachina.cpp">
@@ -102,5 +126,10 @@
     <Image Include="DeusExMachina.ico">
       <Filter>Resource Files</Filter>
     </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="eval\SKConfig.h.in">
+      <Filter>eval</Filter>
+    </None>
   </ItemGroup>
 </Project>
