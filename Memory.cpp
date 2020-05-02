@@ -50,12 +50,12 @@ uint32_t Memory::FindProcess(const std::string& name)
 	return found_process ? proc_entry.th32ProcessID : 0;
 }
 
-uint64_t Memory::FindModule(const std::string& name)
+MODULEENTRY32 Memory::FindModule(const std::string& name)
 {
 	const auto snap = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, process_id);
 	if (snap == INVALID_HANDLE_VALUE) {
 		printf("FindModule INVALID_HANDLE_VALUE\n");
-		return 0;
+		return MODULEENTRY32{};
 	}
 
 	MODULEENTRY32 module_entry{};
@@ -65,7 +65,7 @@ uint64_t Memory::FindModule(const std::string& name)
 	if (!!Module32First(snap, &module_entry)) {
 		do {
 			if (name == module_entry.szModule) {
-				printf("Found Module name: %s base: %016llX\n", module_entry.szModule, reinterpret_cast<uint64_t>(module_entry.modBaseAddr));
+				printf("Found Module name: %s base: %X\n", module_entry.szModule, reinterpret_cast<uintptr_t>(module_entry.modBaseAddr));
 				found_module = true;
 				break;
 			}
@@ -74,5 +74,45 @@ uint64_t Memory::FindModule(const std::string& name)
 
 	CloseHandle(snap);
 
-	return found_module ? reinterpret_cast<uint64_t>(module_entry.modBaseAddr) : 0;
+	return found_module ? module_entry : MODULEENTRY32{};
+}
+
+
+uintptr_t Memory::FindPattern(MODULEENTRY32 module, const char* pattern, const char* mask) {
+	SIZE_T bytesRead;
+	DWORD oldprotect;
+	MEMORY_BASIC_INFORMATION mbi = { 0 };
+
+	auto scan = [](const char* pattern, const char* mask, char* begin, unsigned int size) -> char* {
+		size_t patternLen = strlen(mask);
+		for (unsigned int i = 0; i < size - patternLen; i++) {
+			bool found = true;
+			for (unsigned int j = 0; j < patternLen; j++) {
+				if (mask[j] != '?' && pattern[j] != *(begin + i + j)) {
+					found = false;
+					break;
+				}
+			}
+			if (found) { return (begin + i); }
+		}
+		return nullptr;
+	};
+
+	for (uintptr_t curr = (uintptr_t)module.modBaseAddr; curr < (uintptr_t)module.modBaseAddr + module.modBaseSize; curr += mbi.RegionSize) {
+		if (!VirtualQueryEx(handle, (void*)curr, &mbi, sizeof(mbi))) continue;
+		if (mbi.State != MEM_COMMIT || mbi.Protect == PAGE_NOACCESS) continue;
+
+		char* buffer = new char[mbi.RegionSize];
+
+		if (VirtualProtectEx(handle, mbi.BaseAddress, mbi.RegionSize, PAGE_EXECUTE_READWRITE, &oldprotect)) {
+			ReadProcessMemory(handle, mbi.BaseAddress, buffer, mbi.RegionSize, &bytesRead);
+			VirtualProtectEx(handle, mbi.BaseAddress, mbi.RegionSize, oldprotect, &oldprotect);
+
+			char* internalAddr = scan(pattern, mask, buffer, bytesRead);
+
+			if (internalAddr != nullptr) { return curr + (uintptr_t)(internalAddr - buffer); }
+		}
+		delete[] buffer;
+	}
+	return 0x0;
 }

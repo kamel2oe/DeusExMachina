@@ -15,7 +15,10 @@ void CleanupDeviceD3D();
 void ResetDevice();
 int width = 1000;
 int height = 1000;
-uint64_t base_address;
+uintptr_t base_address;
+uintptr_t base_size;
+uintptr_t table_manager;
+
 bool do_once = true;
 
 static LPDIRECT3D9              g_pD3D = NULL;
@@ -48,8 +51,16 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     mem->FindProcess("PokerStars.exe");
     mem->Open();
 
-    base_address = mem->FindModule("PokerStars.exe");
-    printf("[base_address] %016llX\n", base_address);
+    MODULEENTRY32 module = mem->FindModule("PokerStars.exe");
+
+    base_address = (uintptr_t)module.modBaseAddr;
+    base_size = module.modBaseSize;
+    printf("[base_address] %X [size] %X\n", base_address, base_size);
+
+    //AOB Cheat engine table manager location: \xE8\xD8\xA9\x01
+    //Pointer \x58\x26\x69\x00\x03
+    table_manager = mem->FindPattern(module, "\x58\x26\x69\x00\x03", "xxxxx");
+    printf("[table_manager] %X\n", table_manager);
 
     // Perform application initialization:
     if (!InitInstance(hInstance))
@@ -74,7 +85,7 @@ void Draw()
 
     ImGui::Begin("##Backbuffer", nullptr, ImGuiWindowFlags_NoMouseInputs | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize);
     {
-        uint32_t unk_1 = mem->Read<uint32_t>(base_address + 0x012D03AC);
+        uint32_t unk_1 = mem->Read<uint32_t>(table_manager);
         uint32_t unk_2 = mem->Read<uint32_t>(unk_1 + 0x4);
         uint32_t unk_3 = mem->Read<uint32_t>(unk_2 + 0x8);
         uint32_t unk_4 = mem->Read<uint32_t>(unk_3 + 0x10);
