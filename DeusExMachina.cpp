@@ -58,8 +58,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     printf("[base_address] %X [size] %X\n", base_address, base_size);
 
     //AOB Cheat engine table manager location: \xE8\xD8\xA9\x01
-    //Pointer \x58\x26\x69\x00\x03
-    table_manager = mem->FindPattern(module, "\x58\x26\x69\x00\x03", "xxxxx");
+    //Pointer \x58\x26\x69\x00
+    table_manager = mem->FindPattern(module, "\x58\x26\x69\x00", "xxxx");
     printf("[table_manager] %X\n", table_manager);
 
     // Perform application initialization:
@@ -68,6 +68,14 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
         return FALSE;
     }
 }
+
+enum Stages : int
+{
+    PreFlop = 0,
+    Flop = 1,
+    Turn = 2,
+    River = 3
+};
 
 void Draw()
 {
@@ -96,9 +104,14 @@ void Draw()
 
         uint32_t cards_on_display_count = mem->Read<uint32_t>(table_client_data + 0xB50);
         uint32_t pot_size = mem->Read<uint32_t>(table_client_data + 0x234);
+        uint32_t turn_id = mem->Read<uint32_t>(table_client_data + 0x214);
+        uint32_t stage = mem->Read<uint32_t>(table_client_data + 0x294);
+        uint32_t button_position_id = mem->Read<uint32_t>(table_client_data + 0x278);
 
         ImGui::Text("Cards: %i", cards_on_display_count);
         ImGui::Text("Pot: %i", pot_size);
+        ImGui::Text("Turn ID: %i", turn_id);
+        ImGui::Text("Button ID: %i", button_position_id);
 
         for (int i = 0; i < 5; i++) {
             uint32_t current_card = (table_client_data + 0xB5C) + (0x8 * i);
@@ -113,8 +126,9 @@ void Draw()
                 ImGui::SameLine();
         }
 
-        ImGui::Columns(6, "mycolumns"); // 4-ways, with border
+        ImGui::Columns(7, "mycolumns"); // 4-ways, with border
         ImGui::Separator();
+        ImGui::Text("ID"); ImGui::NextColumn();
         ImGui::Text("Name"); ImGui::NextColumn();
         ImGui::Text("Amount"); ImGui::NextColumn();
         ImGui::Text("InPlay Current Hand"); ImGui::NextColumn();
@@ -132,6 +146,22 @@ void Draw()
 
             if (strlen(name) == 0)
                 continue;
+
+            if (button_position_id == i) {
+                ImGui::Text("%i D", i);
+            }
+            else if (button_position_id + 1 == i)
+            {
+                ImGui::Text("%i SB", i);
+            }
+            else if (button_position_id + 2 == i)
+            {
+                ImGui::Text("%i BB", i);
+            }
+            else {
+                ImGui::Text("%i", i);
+            }
+            ImGui::NextColumn();
 
             ImGui::Text("%s", name); 
 
