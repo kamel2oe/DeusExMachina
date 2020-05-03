@@ -16,8 +16,8 @@
     <Filter Include="imgui">
       <UniqueIdentifier>{a4b8f96a-30dd-4c30-9a33-548fbefe699f}</UniqueIdentifier>
     </Filter>
-    <Filter Include="eval">
-      <UniqueIdentifier>{d0d610cc-9001-48ce-a410-6e1d2bcef67c}</UniqueIdentifier>
+    <Filter Include="omp">
+      <UniqueIdentifier>{2934e4ab-09f5-4847-9cfb-2ae1b05827d5}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -66,26 +66,32 @@
     <ClInclude Include="images.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="eval\RankHash.h">
-      <Filter>eval</Filter>
+    <ClInclude Include="omp\Hand.h">
+      <Filter>omp</Filter>
     </ClInclude>
-    <ClInclude Include="eval\RankOffsets.h">
-      <Filter>eval</Filter>
+    <ClInclude Include="omp\HandEvaluator.h">
+      <Filter>omp</Filter>
     </ClInclude>
-    <ClInclude Include="eval\SevenEval.h">
-      <Filter>eval</Filter>
+    <ClInclude Include="omp\OffsetTable.hxx">
+      <Filter>omp</Filter>
     </ClInclude>
-    <ClInclude Include="eval\Constants.h">
-      <Filter>eval</Filter>
+    <ClInclude Include="omp\Random.h">
+      <Filter>omp</Filter>
     </ClInclude>
-    <ClInclude Include="eval\Deckcards.h">
-      <Filter>eval</Filter>
+    <ClInclude Include="omp\Util.h">
+      <Filter>omp</Filter>
     </ClInclude>
-    <ClInclude Include="eval\FlushCheck.h">
-      <Filter>eval</Filter>
+    <ClInclude Include="omp\CardRange.h">
+      <Filter>omp</Filter>
     </ClInclude>
-    <ClInclude Include="eval\FlushRanks.h">
-      <Filter>eval</Filter>
+    <ClInclude Include="omp\CombinedRange.h">
+      <Filter>omp</Filter>
+    </ClInclude>
+    <ClInclude Include="omp\Constants.h">
+      <Filter>omp</Filter>
+    </ClInclude>
+    <ClInclude Include="omp\EquityCalculator.h">
+      <Filter>omp</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -113,6 +119,18 @@
     <ClCompile Include="Memory.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="omp\HandEvaluator.cpp">
+      <Filter>omp</Filter>
+    </ClCompile>
+    <ClCompile Include="omp\CardRange.cpp">
+      <Filter>omp</Filter>
+    </ClCompile>
+    <ClCompile Include="omp\CombinedRange.cpp">
+      <Filter>omp</Filter>
+    </ClCompile>
+    <ClCompile Include="omp\EquityCalculator.cpp">
+      <Filter>omp</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="DeusExMachina.rc">
@@ -126,10 +144,5 @@
     <Image Include="DeusExMachina.ico">
       <Filter>Resource Files</Filter>
     </Image>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="eval\SKConfig.h.in">
-      <Filter>eval</Filter>
-    </None>
   </ItemGroup>
 </Project>

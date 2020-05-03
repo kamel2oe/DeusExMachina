@@ -4,7 +4,9 @@
 #include <random>
 #include "Memory.h"
 
-#include "eval/SevenEval.h"
+#include "omp/EquityCalculator.h"
+
+#include <set>
 
 // Forward declarations of functions included in this code module:
 BOOL                InitInstance(HINSTANCE);
@@ -25,7 +27,6 @@ static LPDIRECT3D9              g_pD3D = NULL;
 static LPDIRECT3DDEVICE9        g_pd3dDevice = NULL;
 static D3DPRESENT_PARAMETERS    g_d3dpp = {};
 
-
 struct Image
 {
     std::string name;
@@ -34,6 +35,18 @@ struct Image
 };
 
 std::vector<Image> images;
+
+float GetEquity(std::string my_hand, int players, std::string cards)
+{
+    printf("hand: %s cards: %s\n", my_hand.c_str(), cards.c_str());
+
+    omp::EquityCalculator eq;
+    eq.start({ my_hand, "random" }, omp::CardRange::getCardMask(cards), 0, false, 5e-5, nullptr, 0.2, 0);
+    eq.wait();
+    auto r = eq.getResults();
+
+    return r.equity[0];
+}
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                      _In_opt_ HINSTANCE hPrevInstance,
@@ -46,8 +59,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
     OpenConsole();
 
-    std::cout << SevenEval::GetRank(0, 4, 8, 12, 16, 20, 24) << std::endl;
-
     mem->FindProcess("PokerStars.exe");
     mem->Open();
 
@@ -59,8 +70,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
     //AOB Cheat engine table manager location: \xE8\xD8\xA9\x01
     //Pointer \x58\x26\x69\x00
-    table_manager = mem->FindPattern(module, "\x58\x26\x69\x00", "xxxx");
-    printf("[table_manager] %X\n", table_manager);
+    //table_manager = mem->FindPattern(module, "\x58\x26\x69\x00", "xxxx");
+    //printf("[table_manager] %X\n", table_manager);
 
     // Perform application initialization:
     if (!InitInstance(hInstance))
@@ -77,8 +88,73 @@ enum Stages : int
     River = 3
 };
 
+class Player
+{
+    uintptr_t base;
+public:
+    char name[15];
+    int first_card_number;
+    int first_card_type;
+    int second_card_number;
+    int second_card_type;
+    int chip_size;
+    int bet_amount;
+    int bet_total;
+    int state;
+
+    Player(uintptr_t player_address) {
+        base = player_address;
+        Read();
+    }
+
+    void Read()
+    {
+        mem->ReadBuffer(base + 0x8, &name, sizeof(name));
+
+        first_card_number = mem->Read<int>(base + 0xF0);
+        first_card_type = mem->Read<int>(base + 0xF4);
+
+        second_card_number = mem->Read<int>(base + 0xF8);
+        second_card_type = mem->Read<int>(base + 0xFC);
+
+        chip_size = mem->Read<int>(base + 0xB0);
+        bet_amount = mem->Read<int>(base + 0xB8);
+        bet_total = mem->Read<int>(base + 0x88);
+        state = mem->Read<int>(base + 0xD0);
+    }
+
+    bool IsValid()
+    {
+        mem->ReadBuffer(base + 0x8, &name, sizeof(name));
+        return strlen(name) != 0;
+    }
+};
+
+class Card
+{
+    uintptr_t base;
+public:
+    int number;
+    int type;
+
+    Card(uintptr_t card_address)
+    {
+        base = card_address;
+        Read();
+    }
+
+    void Read()
+    {
+        number = mem->Read<int>(base);
+        type = mem->Read<int>(base + 0x4);
+    }
+};
+
 void Draw()
 {
+    std::vector<Player> players;
+    std::vector<Card> cards;
+
     if (do_once) {
         LoadImages(g_pd3dDevice);
         do_once = false;
@@ -93,7 +169,7 @@ void Draw()
 
     ImGui::Begin("##Backbuffer", nullptr, ImGuiWindowFlags_NoMouseInputs | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize);
     {
-        uint32_t unk_1 = mem->Read<uint32_t>(table_manager);
+        uint32_t unk_1 = mem->Read<uint32_t>(base_address + 0x012D47EC);
         uint32_t unk_2 = mem->Read<uint32_t>(unk_1 + 0x4);
         uint32_t unk_3 = mem->Read<uint32_t>(unk_2 + 0x8);
         uint32_t unk_4 = mem->Read<uint32_t>(unk_3 + 0x10);
@@ -114,19 +190,19 @@ void Draw()
         ImGui::Text("Button ID: %i", button_position_id);
 
         for (int i = 0; i < 5; i++) {
-            uint32_t current_card = (table_client_data + 0xB5C) + (0x8 * i);
+            uint32_t card_address = (table_client_data + 0xB5C) + (0x8 * i);
 
-            int card = mem->Read<int>(current_card);
-            int type = mem->Read<int>(current_card + 0x4);
+            Card card(card_address);
 
-            ImGui::Image((void*)GetCardTexture(g_pd3dDevice, card, type), ImVec2(134 / 3, 186 / 3));
-            //ImGui::Text("%s of %s", pp_number(card), pp_type(type));
+            ImGui::Image((void*)GetCardTexture(g_pd3dDevice, card.number, card.type), ImVec2(134 / 3, 186 / 3));
 
             if (i != 4)
                 ImGui::SameLine();
+
+            cards.push_back(card);
         }
 
-        ImGui::Columns(7, "mycolumns"); // 4-ways, with border
+        ImGui::Columns(7, "mycolumns");
         ImGui::Separator();
         ImGui::Text("ID"); ImGui::NextColumn();
         ImGui::Text("Name"); ImGui::NextColumn();
@@ -139,13 +215,14 @@ void Draw()
 
         for (int i = 0; i < 9; i++)
         {
-            uint32_t player = (table_client_data + 0xC08) + (player_size * i);
+            uint32_t player_address = (table_client_data + 0xC08) + (player_size * i);
 
-            char name[15];
-            mem->ReadBuffer(player + 0x8, &name, sizeof(name));
+            Player player(player_address);
 
-            if (strlen(name) == 0)
+            if (!player.IsValid())
                 continue;
+
+            players.push_back(player);
 
             if (button_position_id == i) {
                 ImGui::Text("%i D", i);
@@ -163,42 +240,96 @@ void Draw()
             }
             ImGui::NextColumn();
 
-            ImGui::Text("%s", name); 
+            ImGui::Text("%s", player.name); 
 
-            int one_number = mem->Read<int>(player + 0xF0);
-            int one_type = mem->Read<int>(player + 0xF0 + 0x4);
-
-            int two_number = mem->Read<int>(player + 0xF0 + 0x8);
-            int two_type = mem->Read<int>(player + 0xF0 + 0xC);
-
-            ImGui::Image((void*)GetCardTexture(g_pd3dDevice, one_number, one_type), ImVec2(134 / 4, 186 / 4));
+            ImGui::Image((void*)GetCardTexture(g_pd3dDevice, player.first_card_number, player.first_card_type), ImVec2(134 / 4, 186 / 4));
             ImGui::SameLine();
-            ImGui::Image((void*)GetCardTexture(g_pd3dDevice, two_number, two_type), ImVec2(134 / 4, 186 / 4));
+            ImGui::Image((void*)GetCardTexture(g_pd3dDevice, player.second_card_number, player.second_card_type), ImVec2(134 / 4, 186 / 4));
             ImGui::NextColumn();
 
-            int chip_size = mem->Read<int>(player + 0xB0);
-            ImGui::Text("%i", chip_size); 
+            ImGui::Text("%i", player.chip_size);
             ImGui::NextColumn();
 
-            int bet_amount = mem->Read<int>(player + 0xB8);
-            ImGui::Text("%i", bet_amount);
+            ImGui::Text("%i", player.bet_amount);
             ImGui::NextColumn();
 
-            int bet_total = mem->Read<int>(player + 0x88);
-            ImGui::Text("%i", bet_total);
+            ImGui::Text("%i", player.bet_total);
             ImGui::NextColumn();
 
-            ImGui::Text("%i", chip_size + bet_amount); 
+            ImGui::Text("%i", player.chip_size + player.bet_amount);
             ImGui::NextColumn();
 
-            int state = mem->Read<int>(player + 0xD0);
-            ImGui::Text("%s", state == 1 ? "FOLDED/SITTING OUT" : "IN");
+            ImGui::Text("%s", player.state == 1 ? "FOLDED/SITTING OUT" : "IN");
             ImGui::NextColumn();
         }
+
+        std::string player_name = "greenarr0528";
+
+        auto it = std::find_if(players.begin(), players.end(), [&player_name](const Player& obj) {return obj.name == player_name; });
+
+        if (it != players.end())
+        {
+            auto index = std::distance(players.begin(), it);
+
+            Player current_player = players.at(index);
+
+            if (current_player.first_card_number != 0 && current_player.second_card_number != 0)
+            {
+                //float GetEquity(std::string my_hand, int players, std::string cards)
+                std::string my_hand = pp_card(current_player.first_card_number, current_player.first_card_type) + pp_card(current_player.second_card_number, current_player.second_card_type);
+                std::string table_hand;
+
+                for (Card& card : cards)
+                {
+                    if (card.number != 0)
+                    {
+                        table_hand += pp_card(card.number, card.type);
+                    }
+                }
+
+                //printf("[my_hand] %s\n", my_hand.c_str());
+                //printf("[table_hand] %s\n", table_hand.c_str());
+
+                float equity = GetEquity(my_hand, players.size() - 1, table_hand);
+                printf("[equity] %f\n", equity);
+                /*
+                std::set<std::string> cards_on_table;
+                std::string first_card = pp_card(current_player.first_card_number, current_player.first_card_type);
+                std::string second_card = pp_card(current_player.second_card_number, current_player.second_card_type);
+                printf("%s %s\n", first_card.c_str(), second_card.c_str());
+
+                for (Card& card : cards)
+                {
+                    if (card.number != 0)
+                    {
+                        std::string pretty_card = pp_card(card.number, card.type);
+
+                        cards_on_table.insert(pretty_card);
+                        printf("%s ", pretty_card.c_str());
+                    }
+                }
+                printf("\n");
+
+
+                std::set<std::string> my_cards = { pp_card(current_player.first_card_number, current_player.first_card_type), pp_card(current_player.second_card_number, current_player.second_card_type) };
+                //std::set<std::string> cards_on_table = { "4H", "5H", "6H", "8C", "4S" };
+                const int number_of_players = players.size();
+                const int iterations = 1500;
+                double equity = montecarlo(my_cards, cards_on_table, number_of_players, iterations);
+
+                printf("equity: %f\n", equity);
+                */
+            }
+        }
+
+        
         ImGui::Columns(1);
         ImGui::Separator();
     }
     ImGui::End();
+
+    players.clear();
+    cards.clear();
 }
 
 std::string random_string(const int len) {

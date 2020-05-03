@@ -153,13 +153,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="DeusExMachina.h" />
-    <ClInclude Include="eval\Constants.h" />
-    <ClInclude Include="eval\Deckcards.h" />
-    <ClInclude Include="eval\FlushCheck.h" />
-    <ClInclude Include="eval\FlushRanks.h" />
-    <ClInclude Include="eval\RankHash.h" />
-    <ClInclude Include="eval\RankOffsets.h" />
-    <ClInclude Include="eval\SevenEval.h" />
     <ClInclude Include="fonts.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="images.h" />
@@ -172,6 +165,15 @@
     <ClInclude Include="imgui\imstb_textedit.h" />
     <ClInclude Include="imgui\imstb_truetype.h" />
     <ClInclude Include="Memory.h" />
+    <ClInclude Include="omp\CardRange.h" />
+    <ClInclude Include="omp\CombinedRange.h" />
+    <ClInclude Include="omp\Constants.h" />
+    <ClInclude Include="omp\EquityCalculator.h" />
+    <ClInclude Include="omp\Hand.h" />
+    <ClInclude Include="omp\HandEvaluator.h" />
+    <ClInclude Include="omp\OffsetTable.hxx" />
+    <ClInclude Include="omp\Random.h" />
+    <ClInclude Include="omp\Util.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="targetver.h" />
   </ItemGroup>
@@ -184,6 +186,10 @@
     <ClCompile Include="imgui\imgui_impl_win32.cpp" />
     <ClCompile Include="imgui\imgui_widgets.cpp" />
     <ClCompile Include="Memory.cpp" />
+    <ClCompile Include="omp\CardRange.cpp" />
+    <ClCompile Include="omp\CombinedRange.cpp" />
+    <ClCompile Include="omp\EquityCalculator.cpp" />
+    <ClCompile Include="omp\HandEvaluator.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="DeusExMachina.rc" />
@@ -191,9 +197,6 @@
   <ItemGroup>
     <Image Include="DeusExMachina.ico" />
     <Image Include="small.ico" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="eval\SKConfig.h.in" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

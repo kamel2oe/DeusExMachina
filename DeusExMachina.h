@@ -9,6 +9,8 @@
 #include "imgui/imgui_impl_win32.h"
 #include <d3d9.h>
 #include <iostream>
+#include <sstream>
+#include <string>
 
 #pragma comment(lib, "d3d9.lib")
 
@@ -137,16 +139,17 @@ enum CardType : int
     Spades = 115
 };
 
-const char* pp_type(int type)
+std::string pp_type(int type)
 {
     switch (type)
     {
-    case CardType::Clubs:  return "Clubs";
-    case CardType::Diamonds: return "Diamonds";
-    case CardType::Hearts: return "Hearts";
-    case CardType::Spades: return "Spades";
-    default:  return "";
+    case CardType::Clubs:    return "c";
+    case CardType::Diamonds: return "d";
+    case CardType::Hearts:   return "h";
+    case CardType::Spades:   return "s";
     }
+
+    return "";
 }
 
 enum CardNumber : int
@@ -166,25 +169,31 @@ enum CardNumber : int
     Ace
 };
 
-const char* pp_number(int number)
+std::string pp_number(int number)
 {
     switch (number)
     {
-    case CardNumber::Two:   return "Two";
-    case CardNumber::Three: return "Three";
-    case CardNumber::Four:  return "Four";
-    case CardNumber::Five:  return "Five";
-    case CardNumber::Six:   return "Six";
-    case CardNumber::Seven: return "Seven";
-    case CardNumber::Eight: return "Eight";
-    case CardNumber::Nine:  return "Nine";
-    case CardNumber::Ten:   return "Ten";
-    case CardNumber::Jack:  return "Jack";
-    case CardNumber::Queen: return "Queen";
-    case CardNumber::King:  return "King";
-    case CardNumber::Ace:   return "Ace";
-    default: return "";
+    case CardNumber::Two:   return "2";
+    case CardNumber::Three: return "3";
+    case CardNumber::Four:  return "4";
+    case CardNumber::Five:  return "5";
+    case CardNumber::Six:   return "6";
+    case CardNumber::Seven: return "7";
+    case CardNumber::Eight: return "8";
+    case CardNumber::Nine:  return "9";
+    case CardNumber::Ten:   return "t";
+    case CardNumber::Jack:  return "j";
+    case CardNumber::Queen: return "q";
+    case CardNumber::King:  return "k";
+    case CardNumber::Ace:   return "a";
     }
+
+    return "";
+}
+
+std::string pp_card(int number, int type)
+{
+    return pp_number(number) + pp_type(type);
 }
 
 void LoadImages(LPDIRECT3DDEVICE9 device)
