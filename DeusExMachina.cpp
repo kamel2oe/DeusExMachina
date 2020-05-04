@@ -5,7 +5,6 @@
 #include "Memory.h"
 
 #include "omp/EquityCalculator.h"
-
 #include <set>
 
 // Forward declarations of functions included in this code module:
@@ -41,7 +40,16 @@ float GetEquity(std::string my_hand, int players, std::string cards)
     printf("hand: %s cards: %s\n", my_hand.c_str(), cards.c_str());
 
     omp::EquityCalculator eq;
-    eq.start({ my_hand, "random" }, omp::CardRange::getCardMask(cards), 0, false, 5e-5, nullptr, 0.2, 0);
+
+    std::vector<omp::CardRange> hand_ranges;
+
+    hand_ranges.push_back(my_hand);
+
+    for (int i = 0; i < players; i++) {
+        hand_ranges.push_back("random");
+    }
+
+    eq.start(hand_ranges, omp::CardRange::getCardMask(cards), 0, false, 5e-5, nullptr, 0.2, 0);
     eq.wait();
     auto r = eq.getResults();
 
@@ -59,6 +67,21 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
     OpenConsole();
 
+    /*
+    omp::EquityCalculator eq;
+
+    eq.start({ "Ah8h", "random", "random", "random" }, omp::CardRange::getCardMask("KcKd8dKsKh"), 0, false, 5e-5, nullptr, 0.2, 0);
+    eq.wait();
+    auto r = eq.getResults();
+
+    std::cout << r.equity[0] << " " << r.equity[1] << " " << r.equity[2] << std::endl;
+    std::cout << r.wins[0] << " " << r.wins[1] << " " << r.wins[2] << std::endl;
+    std::cout << r.ties[0] << " " << r.ties[1] << " " << r.ties[2] << std::endl;
+    std::cout << r.hands << " " << r.time << " " << 1e-6 * r.speed << " " << r.stdev << std::endl;
+
+    printf(">>>> %f hands: %i\n\n", (double)r.wins[0] / r.hands, r.hands);
+    */
+
     mem->FindProcess("PokerStars.exe");
     mem->Open();
 
@@ -68,10 +91,14 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     base_size = module.modBaseSize;
     printf("[base_address] %X [size] %X\n", base_address, base_size);
 
-    //AOB Cheat engine table manager location: \xE8\xD8\xA9\x01
-    //Pointer \x58\x26\x69\x00
-    //table_manager = mem->FindPattern(module, "\x58\x26\x69\x00", "xxxx");
-    //printf("[table_manager] %X\n", table_manager);
+    uint32_t table_manager_offset = mem->FindPattern(module, "\xa1\x00\x00\x00\x00\x85\xc0\x74\x00\x8b\xe5\x5d\xc3\x68\x00\x00\x00\x00\x68\x00\x00\x00\x00\x68\x00\x00\x00\x00\x8d\x4d\x00\xe8\x00\x00\x00\x00\x68\x00\x00\x00\x00\x8d\x45\x00\x50\xe8\x00\x00\x00\x00\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xcc\x55\x8b\xec\x51", "x????xxx?xxxxx????x????x????xx?x????x????xx?xx????xxxxxxxxxxxxxx") + 1;
+    printf("[table_manager_offset] 0x%X\n", table_manager_offset);
+
+    uint32_t table_manager_func = mem->Read<uint32_t>(table_manager_offset);
+    printf("[table_manager_func] 0x%X\n", table_manager_func);
+
+    table_manager = mem->Read<uint32_t>(table_manager_func);
+    printf("[table_manager] 0x%X\n", table_manager);
 
     // Perform application initialization:
     if (!InitInstance(hInstance))
@@ -169,162 +196,185 @@ void Draw()
 
     ImGui::Begin("##Backbuffer", nullptr, ImGuiWindowFlags_NoMouseInputs | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize);
     {
-        uint32_t unk_1 = mem->Read<uint32_t>(base_address + 0x012D47EC);
-        uint32_t unk_2 = mem->Read<uint32_t>(unk_1 + 0x4);
-        uint32_t unk_3 = mem->Read<uint32_t>(unk_2 + 0x8);
-        uint32_t unk_4 = mem->Read<uint32_t>(unk_3 + 0x10);
-        uint32_t table_client_data = mem->Read<uint32_t>(unk_4 + 0x110);
+        uint32_t unk_1 = mem->Read<uint32_t>(table_manager + 0x14);
 
-        uint32_t player_offset = 0xC08;
-        uint32_t player_size = 0x1F8;
+        int amount_of_tables = 2;
 
-        uint32_t cards_on_display_count = mem->Read<uint32_t>(table_client_data + 0xB50);
-        uint32_t pot_size = mem->Read<uint32_t>(table_client_data + 0x234);
-        uint32_t turn_id = mem->Read<uint32_t>(table_client_data + 0x214);
-        uint32_t stage = mem->Read<uint32_t>(table_client_data + 0x294);
-        uint32_t button_position_id = mem->Read<uint32_t>(table_client_data + 0x278);
+        for (int i = 0; i < amount_of_tables; i++) {
+            uint32_t table = mem->Read<uint32_t>(unk_1 + (0x4 * i));
 
-        ImGui::Text("Cards: %i", cards_on_display_count);
-        ImGui::Text("Pot: %i", pot_size);
-        ImGui::Text("Turn ID: %i", turn_id);
-        ImGui::Text("Button ID: %i", button_position_id);
+            uint32_t table_client_data = mem->Read<uint32_t>(table + 0x164);
 
-        for (int i = 0; i < 5; i++) {
-            uint32_t card_address = (table_client_data + 0xB5C) + (0x8 * i);
+            uint32_t player_offset = 0xC08;
+            uint32_t player_size = 0x1F8;
 
-            Card card(card_address);
+            uint32_t cards_on_display_count = mem->Read<uint32_t>(table_client_data + 0xB50);
+            uint32_t pot_size = mem->Read<uint32_t>(table_client_data + 0x234);
+            //uint32_t stage = mem->Read<uint32_t>(table_client_data + 0x294);
 
-            ImGui::Image((void*)GetCardTexture(g_pd3dDevice, card.number, card.type), ImVec2(134 / 3, 186 / 3));
+            uint32_t dealer_player_id = mem->Read<uint32_t>(table + 0xF18);
+            uint32_t current_player_id = mem->Read<uint32_t>(table + 0xF1C);
 
-            if (i != 4)
+            //uint32_t stage = mem->Read<uint32_t>(table_client_data + 0x294); // 0 = preflop, 1 = flop, 2 = turn, 
+
+            char table_name[15];
+            uint32_t table_name_ptr = mem->Read<uint32_t>(table_client_data + 0xC4);
+            mem->ReadBuffer(table_name_ptr, &table_name, sizeof(table_name));
+
+            ImGui::Text("Table Name: %s", table_name);
+
+            ImGui::Text("Cards: %i", cards_on_display_count);
+            ImGui::Text("Pot: %i", pot_size);
+
+            ImGui::Text("Dealer Player ID: %i", dealer_player_id);
+            ImGui::Text("Current Player ID: %i", current_player_id);
+
+            for (int i = 0; i < 5; i++) {
+                uint32_t card_address = (table_client_data + 0xB5C) + (0x8 * i);
+
+                Card card(card_address);
+
+                ImGui::Image((void*)GetCardTexture(g_pd3dDevice, card.number, card.type), ImVec2(134 / 3, 186 / 3));
+
+                if (i != 4)
+                    ImGui::SameLine();
+
+                cards.push_back(card);
+            }
+
+            ImGui::Columns(7, "mycolumns");
+            ImGui::Separator();
+            ImGui::Text("ID"); ImGui::NextColumn();
+            ImGui::Text("Name"); ImGui::NextColumn();
+            ImGui::Text("Amount"); ImGui::NextColumn();
+            ImGui::Text("InPlay Current Hand"); ImGui::NextColumn();
+            ImGui::Text("InPlay Total"); ImGui::NextColumn();
+            ImGui::Text("Total"); ImGui::NextColumn();
+            ImGui::Text("State"); ImGui::NextColumn();
+            ImGui::Separator();
+
+            for (int i = 0; i < 9; i++)
+            {
+                uint32_t player_address = (table_client_data + 0xC08) + (player_size * i);
+
+                Player player(player_address);
+
+                if (!player.IsValid())
+                    continue;
+
+                players.push_back(player);
+
+                if (dealer_player_id == i) {
+                    ImGui::Text("%i D", i);
+                }
+                else if (dealer_player_id + 1 == i)
+                {
+                    ImGui::Text("%i SB", i);
+                }
+                else if (dealer_player_id + 2 == i)
+                {
+                    ImGui::Text("%i BB", i);
+                }
+                else {
+                    ImGui::Text("%i", i);
+                }
+                ImGui::NextColumn();
+
+                ImGui::Text("%s", player.name);
+
+                ImGui::Image((void*)GetCardTexture(g_pd3dDevice, player.first_card_number, player.first_card_type), ImVec2(134 / 4, 186 / 4));
                 ImGui::SameLine();
+                ImGui::Image((void*)GetCardTexture(g_pd3dDevice, player.second_card_number, player.second_card_type), ImVec2(134 / 4, 186 / 4));
+                ImGui::NextColumn();
 
-            cards.push_back(card);
-        }
+                ImGui::Text("%i", player.chip_size);
+                ImGui::NextColumn();
 
-        ImGui::Columns(7, "mycolumns");
-        ImGui::Separator();
-        ImGui::Text("ID"); ImGui::NextColumn();
-        ImGui::Text("Name"); ImGui::NextColumn();
-        ImGui::Text("Amount"); ImGui::NextColumn();
-        ImGui::Text("InPlay Current Hand"); ImGui::NextColumn();
-        ImGui::Text("InPlay Total"); ImGui::NextColumn();
-        ImGui::Text("Total"); ImGui::NextColumn();
-        ImGui::Text("State"); ImGui::NextColumn();
-        ImGui::Separator();
+                ImGui::Text("%i", player.bet_amount);
+                ImGui::NextColumn();
 
-        for (int i = 0; i < 9; i++)
-        {
-            uint32_t player_address = (table_client_data + 0xC08) + (player_size * i);
+                ImGui::Text("%i", player.bet_total);
+                ImGui::NextColumn();
 
-            Player player(player_address);
+                ImGui::Text("%i", player.chip_size + player.bet_amount);
+                ImGui::NextColumn();
 
-            if (!player.IsValid())
-                continue;
-
-            players.push_back(player);
-
-            if (button_position_id == i) {
-                ImGui::Text("%i D", i);
+                ImGui::Text("%s", player.state == 1 ? "FOLDED/SITTING OUT" : "IN");
+                ImGui::NextColumn();
             }
-            else if (button_position_id + 1 == i)
+
+            std::string player_name = "greenarr0528";
+
+            auto it = std::find_if(players.begin(), players.end(), [&player_name](const Player& obj) {return obj.name == player_name; });
+
+            if (it != players.end())
             {
-                ImGui::Text("%i SB", i);
-            }
-            else if (button_position_id + 2 == i)
-            {
-                ImGui::Text("%i BB", i);
-            }
-            else {
-                ImGui::Text("%i", i);
-            }
-            ImGui::NextColumn();
+                auto index = std::distance(players.begin(), it);
 
-            ImGui::Text("%s", player.name); 
+                Player current_player = players.at(index);
 
-            ImGui::Image((void*)GetCardTexture(g_pd3dDevice, player.first_card_number, player.first_card_type), ImVec2(134 / 4, 186 / 4));
-            ImGui::SameLine();
-            ImGui::Image((void*)GetCardTexture(g_pd3dDevice, player.second_card_number, player.second_card_type), ImVec2(134 / 4, 186 / 4));
-            ImGui::NextColumn();
-
-            ImGui::Text("%i", player.chip_size);
-            ImGui::NextColumn();
-
-            ImGui::Text("%i", player.bet_amount);
-            ImGui::NextColumn();
-
-            ImGui::Text("%i", player.bet_total);
-            ImGui::NextColumn();
-
-            ImGui::Text("%i", player.chip_size + player.bet_amount);
-            ImGui::NextColumn();
-
-            ImGui::Text("%s", player.state == 1 ? "FOLDED/SITTING OUT" : "IN");
-            ImGui::NextColumn();
-        }
-
-        std::string player_name = "greenarr0528";
-
-        auto it = std::find_if(players.begin(), players.end(), [&player_name](const Player& obj) {return obj.name == player_name; });
-
-        if (it != players.end())
-        {
-            auto index = std::distance(players.begin(), it);
-
-            Player current_player = players.at(index);
-
-            if (current_player.first_card_number != 0 && current_player.second_card_number != 0)
-            {
-                //float GetEquity(std::string my_hand, int players, std::string cards)
-                std::string my_hand = pp_card(current_player.first_card_number, current_player.first_card_type) + pp_card(current_player.second_card_number, current_player.second_card_type);
-                std::string table_hand;
-
-                for (Card& card : cards)
+                if (current_player.first_card_number != 0 && current_player.second_card_number != 0)
                 {
-                    if (card.number != 0)
+                    //float GetEquity(std::string my_hand, int players, std::string cards)
+                    std::string my_hand = pp_card(current_player.first_card_number, current_player.first_card_type) + pp_card(current_player.second_card_number, current_player.second_card_type);
+                    std::string table_hand;
+
+                    for (Card& card : cards)
                     {
-                        table_hand += pp_card(card.number, card.type);
+                        if (card.number != 0)
+                        {
+                            table_hand += pp_card(card.number, card.type);
+                        }
                     }
-                }
 
-                //printf("[my_hand] %s\n", my_hand.c_str());
-                //printf("[table_hand] %s\n", table_hand.c_str());
+                    //printf("[my_hand] %s\n", my_hand.c_str());
+                    //printf("[table_hand] %s\n", table_hand.c_str());
 
-                float equity = GetEquity(my_hand, players.size() - 1, table_hand);
-                printf("[equity] %f\n", equity);
-                /*
-                std::set<std::string> cards_on_table;
-                std::string first_card = pp_card(current_player.first_card_number, current_player.first_card_type);
-                std::string second_card = pp_card(current_player.second_card_number, current_player.second_card_type);
-                printf("%s %s\n", first_card.c_str(), second_card.c_str());
+                    float equity = GetEquity(my_hand, players.size() - 1, table_hand);
+                    printf("[equity] %f\n", equity);
+                    /*
+                    std::set<std::string> cards_on_table;
+                    std::string first_card = pp_card(current_player.first_card_number, current_player.first_card_type);
+                    std::string second_card = pp_card(current_player.second_card_number, current_player.second_card_type);
+                    printf("%s %s\n", first_card.c_str(), second_card.c_str());
 
-                for (Card& card : cards)
-                {
-                    if (card.number != 0)
+                    for (Card& card : cards)
                     {
-                        std::string pretty_card = pp_card(card.number, card.type);
+                        if (card.number != 0)
+                        {
+                            std::string pretty_card = pp_card(card.number, card.type);
 
-                        cards_on_table.insert(pretty_card);
-                        printf("%s ", pretty_card.c_str());
+                            cards_on_table.insert(pretty_card);
+                            printf("%s ", pretty_card.c_str());
+                        }
                     }
+                    printf("\n");
+
+
+                    std::set<std::string> my_cards = { pp_card(current_player.first_card_number, current_player.first_card_type), pp_card(current_player.second_card_number, current_player.second_card_type) };
+                    //std::set<std::string> cards_on_table = { "4H", "5H", "6H", "8C", "4S" };
+                    const int number_of_players = players.size();
+                    const int iterations = 1500;
+                    double equity = montecarlo(my_cards, cards_on_table, number_of_players, iterations);
+
+                    printf("equity: %f\n", equity);
+                    */
                 }
-                printf("\n");
-
-
-                std::set<std::string> my_cards = { pp_card(current_player.first_card_number, current_player.first_card_type), pp_card(current_player.second_card_number, current_player.second_card_type) };
-                //std::set<std::string> cards_on_table = { "4H", "5H", "6H", "8C", "4S" };
-                const int number_of_players = players.size();
-                const int iterations = 1500;
-                double equity = montecarlo(my_cards, cards_on_table, number_of_players, iterations);
-
-                printf("equity: %f\n", equity);
-                */
             }
+
+
+            ImGui::Columns(1);
+            ImGui::Separator();
         }
 
-        
-        ImGui::Columns(1);
-        ImGui::Separator();
+
+        //uint32_t unk_1 = mem->Read<uint32_t>(base_address + 0x012D47EC);
+        //uint32_t unk_2 = mem->Read<uint32_t>(unk_1 + 0x4);
+        //uint32_t unk_3 = mem->Read<uint32_t>(unk_2 + 0x8);
+        //uint32_t unk_4 = mem->Read<uint32_t>(unk_3 + 0x10);
+        //uint32_t table_client_data = mem->Read<uint32_t>(unk_4 + 0x110);
+
+
     }
     ImGui::End();
 
