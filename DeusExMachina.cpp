@@ -37,7 +37,7 @@ std::vector<Image> images;
 
 float GetEquity(std::string my_hand, int players, std::string cards)
 {
-    printf("hand: %s cards: %s\n", my_hand.c_str(), cards.c_str());
+    printf("hand: %s cards: %s, players: %i\n", my_hand.c_str(), cards.c_str(), players);
 
     omp::EquityCalculator eq;
 
@@ -81,6 +81,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
     printf(">>>> %f hands: %i\n\n", (double)r.wins[0] / r.hands, r.hands);
     */
+    
 
     mem->FindProcess("PokerStars.exe");
     mem->Open();
@@ -91,14 +92,21 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     base_size = module.modBaseSize;
     printf("[base_address] %X [size] %X\n", base_address, base_size);
 
+    //uint32_t table_manager_offset = mem->FindPattern(module, "\x8b\x1d\x00\x00\x00\x00\x56\x57\x8b\xfb", "xx????xxxx") + 2; // mov ebx,[PokerStars.exe+12D47EC] - 8B 1D ? ? ? ? 56 57 8B FB
+    
+    //mov eax,["PokerStars.exe"+12D8994]
+    //AppModule : CommClientAuthCallback
     uint32_t table_manager_offset = mem->FindPattern(module, "\xa1\x00\x00\x00\x00\x85\xc0\x74\x00\x8b\xe5\x5d\xc3\x68\x00\x00\x00\x00\x68\x00\x00\x00\x00\x68\x00\x00\x00\x00\x8d\x4d\x00\xe8\x00\x00\x00\x00\x68\x00\x00\x00\x00\x8d\x45\x00\x50\xe8\x00\x00\x00\x00\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xcc\x55\x8b\xec\x51", "x????xxx?xxxxx????x????x????xx?x????x????xx?xx????xxxxxxxxxxxxxx") + 1;
     printf("[table_manager_offset] 0x%X\n", table_manager_offset);
+    printf("[table_manager_offset] 0x%X\n", table_manager_offset - base_address);
 
     uint32_t table_manager_func = mem->Read<uint32_t>(table_manager_offset);
     printf("[table_manager_func] 0x%X\n", table_manager_func);
+    printf("[table_manager_func] 0x%X\n", table_manager_func - base_address);
 
     table_manager = mem->Read<uint32_t>(table_manager_func);
     printf("[table_manager] 0x%X\n", table_manager);
+    printf("[table_manager] 0x%X\n", table_manager - base_address);
 
     // Perform application initialization:
     if (!InitInstance(hInstance))
@@ -198,10 +206,28 @@ void Draw()
     {
         uint32_t unk_1 = mem->Read<uint32_t>(table_manager + 0x14);
 
-        int amount_of_tables = 2;
+        uint32_t unk_0 = mem->Read<uint32_t>(table_manager + 0x20);
+        uint32_t tournament_tables = mem->Read<uint32_t>(unk_0 + 0x4);
 
-        for (int i = 0; i < amount_of_tables; i++) {
-            uint32_t table = mem->Read<uint32_t>(unk_1 + (0x4 * i));
+        int amount_of_tables = 1;
+
+        /*
+        for (int i = 0; i < 5; i++) {
+            uint32_t table = mem->Read<uint32_t>(tournament_tables + (0x4 * i));
+
+            uint32_t table_client_data = mem->Read<uint32_t>(table + 0x164);
+
+            char table_name[15];
+            uint32_t table_name_ptr = mem->Read<uint32_t>(table_client_data + 0xC4);
+            mem->ReadBuffer(table_name_ptr, &table_name, sizeof(table_name));
+
+            ImGui::Text("Table Name: %s %x", table_name, tournament_tables + (0x4 * i));
+        }
+        */
+
+        for (int i = 0; i < 3; i++) {
+            //uint32_t table = mem->Read<uint32_t>(unk_1 + (0x4 * i));
+            uint32_t table = mem->Read<uint32_t>(tournament_tables + (0x4 * i));
 
             uint32_t table_client_data = mem->Read<uint32_t>(table + 0x164);
 
@@ -210,12 +236,9 @@ void Draw()
 
             uint32_t cards_on_display_count = mem->Read<uint32_t>(table_client_data + 0xB50);
             uint32_t pot_size = mem->Read<uint32_t>(table_client_data + 0x234);
-            //uint32_t stage = mem->Read<uint32_t>(table_client_data + 0x294);
 
             uint32_t dealer_player_id = mem->Read<uint32_t>(table + 0xF18);
             uint32_t current_player_id = mem->Read<uint32_t>(table + 0xF1C);
-
-            //uint32_t stage = mem->Read<uint32_t>(table_client_data + 0x294); // 0 = preflop, 1 = flop, 2 = turn, 
 
             char table_name[15];
             uint32_t table_name_ptr = mem->Read<uint32_t>(table_client_data + 0xC4);
@@ -228,6 +251,12 @@ void Draw()
 
             ImGui::Text("Dealer Player ID: %i", dealer_player_id);
             ImGui::Text("Current Player ID: %i", current_player_id);
+
+            uint32_t ante = mem->Read<uint32_t>(table_client_data + 0x298);
+            uint32_t small_blind = mem->Read<uint32_t>(table_client_data + 0xEC);
+            uint32_t big_blind = mem->Read<uint32_t>(table_client_data + 0xF0);
+
+            ImGui::Text("Ante %i, SB %i, BB %i", ante, small_blind, big_blind);
 
             for (int i = 0; i < 5; i++) {
                 uint32_t card_address = (table_client_data + 0xB5C) + (0x8 * i);
