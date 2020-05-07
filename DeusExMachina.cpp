@@ -1,11 +1,11 @@
-#include "framework.h"
-#include "DeusExMachina.h"
 #include <string>
 #include <random>
-#include "Memory.h"
-
-#include "omp/EquityCalculator.h"
 #include <set>
+
+#include "framework.h"
+#include "DeusExMachina.h"
+#include "Memory.h"
+#include "omp/EquityCalculator.h"
 
 // Forward declarations of functions included in this code module:
 BOOL                InitInstance(HINSTANCE);
@@ -25,15 +25,6 @@ bool do_once = true;
 static LPDIRECT3D9              g_pD3D = NULL;
 static LPDIRECT3DDEVICE9        g_pd3dDevice = NULL;
 static D3DPRESENT_PARAMETERS    g_d3dpp = {};
-
-struct Image
-{
-    std::string name;
-    int width;
-    int height;
-};
-
-std::vector<Image> images;
 
 float GetEquity(std::string my_hand, int players, std::string cards)
 {
@@ -67,22 +58,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
     OpenConsole();
 
-    /*
-    omp::EquityCalculator eq;
-
-    eq.start({ "Ah8h", "random", "random", "random" }, omp::CardRange::getCardMask("KcKd8dKsKh"), 0, false, 5e-5, nullptr, 0.2, 0);
-    eq.wait();
-    auto r = eq.getResults();
-
-    std::cout << r.equity[0] << " " << r.equity[1] << " " << r.equity[2] << std::endl;
-    std::cout << r.wins[0] << " " << r.wins[1] << " " << r.wins[2] << std::endl;
-    std::cout << r.ties[0] << " " << r.ties[1] << " " << r.ties[2] << std::endl;
-    std::cout << r.hands << " " << r.time << " " << 1e-6 * r.speed << " " << r.stdev << std::endl;
-
-    printf(">>>> %f hands: %i\n\n", (double)r.wins[0] / r.hands, r.hands);
-    */
-    
-
     mem->FindProcess("PokerStars.exe");
     mem->Open();
 
@@ -92,8 +67,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     base_size = module.modBaseSize;
     printf("[base_address] %X [size] %X\n", base_address, base_size);
 
-    //uint32_t table_manager_offset = mem->FindPattern(module, "\x8b\x1d\x00\x00\x00\x00\x56\x57\x8b\xfb", "xx????xxxx") + 2; // mov ebx,[PokerStars.exe+12D47EC] - 8B 1D ? ? ? ? 56 57 8B FB
-    
     //mov eax,["PokerStars.exe"+12D8994]
     //AppModule : CommClientAuthCallback
     uint32_t table_manager_offset = mem->FindPattern(module, "\xa1\x00\x00\x00\x00\x85\xc0\x74\x00\x8b\xe5\x5d\xc3\x68\x00\x00\x00\x00\x68\x00\x00\x00\x00\x68\x00\x00\x00\x00\x8d\x4d\x00\xe8\x00\x00\x00\x00\x68\x00\x00\x00\x00\x8d\x45\x00\x50\xe8\x00\x00\x00\x00\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xcc\x55\x8b\xec\x51", "x????xxx?xxxxx????x????x????xx?x????x????xx?xx????xxxxxxxxxxxxxx") + 1;
@@ -102,11 +75,11 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
     uint32_t table_manager_func = mem->Read<uint32_t>(table_manager_offset);
     printf("[table_manager_func] 0x%X\n", table_manager_func);
-    printf("[table_manager_func] 0x%X\n", table_manager_func - base_address);
+    printf("[table_manager_func - base_address] 0x%X\n", table_manager_func - base_address);
 
     table_manager = mem->Read<uint32_t>(table_manager_func);
     printf("[table_manager] 0x%X\n", table_manager);
-    printf("[table_manager] 0x%X\n", table_manager - base_address);
+    printf("[table_manager - base_address] 0x%X\n", table_manager - base_address);
 
     // Perform application initialization:
     if (!InitInstance(hInstance))
@@ -204,30 +177,16 @@ void Draw()
 
     ImGui::Begin("##Backbuffer", nullptr, ImGuiWindowFlags_NoMouseInputs | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize);
     {
-        uint32_t unk_1 = mem->Read<uint32_t>(table_manager + 0x14);
+        uint32_t normal_tables = mem->Read<uint32_t>(table_manager + 0x14);
 
         uint32_t unk_0 = mem->Read<uint32_t>(table_manager + 0x20);
         uint32_t tournament_tables = mem->Read<uint32_t>(unk_0 + 0x4);
 
         int amount_of_tables = 1;
 
-        /*
-        for (int i = 0; i < 5; i++) {
-            uint32_t table = mem->Read<uint32_t>(tournament_tables + (0x4 * i));
-
-            uint32_t table_client_data = mem->Read<uint32_t>(table + 0x164);
-
-            char table_name[15];
-            uint32_t table_name_ptr = mem->Read<uint32_t>(table_client_data + 0xC4);
-            mem->ReadBuffer(table_name_ptr, &table_name, sizeof(table_name));
-
-            ImGui::Text("Table Name: %s %x", table_name, tournament_tables + (0x4 * i));
-        }
-        */
-
         for (int i = 0; i < 3; i++) {
-            //uint32_t table = mem->Read<uint32_t>(unk_1 + (0x4 * i));
-            uint32_t table = mem->Read<uint32_t>(tournament_tables + (0x4 * i));
+            uint32_t table = mem->Read<uint32_t>(normal_tables + (0x4 * i));
+            //uint32_t table = mem->Read<uint32_t>(tournament_tables + (0x4 * i));
 
             uint32_t table_client_data = mem->Read<uint32_t>(table + 0x164);
 
@@ -344,7 +303,6 @@ void Draw()
 
                 if (current_player.first_card_number != 0 && current_player.second_card_number != 0)
                 {
-                    //float GetEquity(std::string my_hand, int players, std::string cards)
                     std::string my_hand = pp_card(current_player.first_card_number, current_player.first_card_type) + pp_card(current_player.second_card_number, current_player.second_card_type);
                     std::string table_hand;
 
@@ -361,33 +319,6 @@ void Draw()
 
                     float equity = GetEquity(my_hand, players.size() - 1, table_hand);
                     printf("[equity] %f\n", equity);
-                    /*
-                    std::set<std::string> cards_on_table;
-                    std::string first_card = pp_card(current_player.first_card_number, current_player.first_card_type);
-                    std::string second_card = pp_card(current_player.second_card_number, current_player.second_card_type);
-                    printf("%s %s\n", first_card.c_str(), second_card.c_str());
-
-                    for (Card& card : cards)
-                    {
-                        if (card.number != 0)
-                        {
-                            std::string pretty_card = pp_card(card.number, card.type);
-
-                            cards_on_table.insert(pretty_card);
-                            printf("%s ", pretty_card.c_str());
-                        }
-                    }
-                    printf("\n");
-
-
-                    std::set<std::string> my_cards = { pp_card(current_player.first_card_number, current_player.first_card_type), pp_card(current_player.second_card_number, current_player.second_card_type) };
-                    //std::set<std::string> cards_on_table = { "4H", "5H", "6H", "8C", "4S" };
-                    const int number_of_players = players.size();
-                    const int iterations = 1500;
-                    double equity = montecarlo(my_cards, cards_on_table, number_of_players, iterations);
-
-                    printf("equity: %f\n", equity);
-                    */
                 }
             }
 
@@ -395,15 +326,6 @@ void Draw()
             ImGui::Columns(1);
             ImGui::Separator();
         }
-
-
-        //uint32_t unk_1 = mem->Read<uint32_t>(base_address + 0x012D47EC);
-        //uint32_t unk_2 = mem->Read<uint32_t>(unk_1 + 0x4);
-        //uint32_t unk_3 = mem->Read<uint32_t>(unk_2 + 0x8);
-        //uint32_t unk_4 = mem->Read<uint32_t>(unk_3 + 0x10);
-        //uint32_t table_client_data = mem->Read<uint32_t>(unk_4 + 0x110);
-
-
     }
     ImGui::End();
 
