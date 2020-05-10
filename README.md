@@ -17,6 +17,7 @@ Features:
 - [ ] Create a game manager to handle state.
 - [x] Add equity calculation using [OMPEval](https://github.com/zekyll/OMPEval)
 - [ ] Handle inputting information back into the client fold/call/bet
+- [x] Support multiple tables
 
 Screenshots:
 
