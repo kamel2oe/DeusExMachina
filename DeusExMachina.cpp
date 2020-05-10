@@ -158,32 +158,235 @@ public:
     }
 };
 
-void Draw()
+void DrawTableInfo(uint32_t table, uint32_t table_client_data, char* table_name)
 {
     std::vector<Player> players;
     std::vector<Card> cards;
 
+    uint32_t player_offset = 0xC08;
+    uint32_t player_size = 0x1F8;
+
+    uint32_t cards_on_display_count = mem->Read<uint32_t>(table_client_data + 0xB50);
+    uint32_t pot_size = mem->Read<uint32_t>(table_client_data + 0x234);
+
+    uint32_t dealer_player_id = mem->Read<uint32_t>(table + 0xF18);
+    uint32_t current_player_id = mem->Read<uint32_t>(table + 0xF1C);
+
+    ImGui::Text("Table Name: %s", table_name);
+
+    ImGui::Text("Cards: %i", cards_on_display_count);
+    ImGui::Text("Pot: %i", pot_size);
+
+    ImGui::Text("Dealer Player ID: %i", dealer_player_id);
+    ImGui::Text("Current Player ID: %i", current_player_id);
+
+    uint32_t ante = mem->Read<uint32_t>(table_client_data + 0x298);
+    uint32_t small_blind = mem->Read<uint32_t>(table_client_data + 0xEC);
+    uint32_t big_blind = mem->Read<uint32_t>(table_client_data + 0xF0);
+
+    ImGui::Text("Ante %i, Small Blind %i, Big Blind %i", ante, small_blind, big_blind);
+
+    for (int i = 0; i < 5; i++) {
+        uint32_t card_address = (table_client_data + 0xB5C) + (0x8 * i);
+
+        Card card(card_address);
+
+        ImGui::Image((void*)GetCardTexture(g_pd3dDevice, card.number, card.type), ImVec2(134 / 3, 186 / 3));
+
+        if (i != 4)
+            ImGui::SameLine();
+
+        cards.push_back(card);
+    }
+
+    ImGui::Columns(7, "mycolumns");
+    ImGui::Separator();
+    ImGui::Text("ID"); ImGui::NextColumn();
+    ImGui::Text("Name"); ImGui::NextColumn();
+    ImGui::Text("Amount"); ImGui::NextColumn();
+    ImGui::Text("InPlay Current Hand"); ImGui::NextColumn();
+    ImGui::Text("InPlay Total"); ImGui::NextColumn();
+    ImGui::Text("Total"); ImGui::NextColumn();
+    ImGui::Text("State"); ImGui::NextColumn();
+    ImGui::Separator();
+
+    for (int i = 0; i < 9; i++)
+    {
+        uint32_t player_address = (table_client_data + 0xC08) + (player_size * i);
+
+        Player player(player_address);
+
+        if (!player.IsValid())
+            continue;
+
+        players.push_back(player);
+
+        if (dealer_player_id == i) {
+            ImGui::Text("%i D", i);
+        }
+        else if (dealer_player_id + 1 == i)
+        {
+            ImGui::Text("%i SB", i);
+        }
+        else if (dealer_player_id + 2 == i)
+        {
+            ImGui::Text("%i BB", i);
+        }
+        else {
+            ImGui::Text("%i", i);
+        }
+        ImGui::NextColumn();
+
+        ImGui::Text("%s", player.name);
+
+        ImGui::Image((void*)GetCardTexture(g_pd3dDevice, player.first_card_number, player.first_card_type), ImVec2(134 / 4, 186 / 4));
+        ImGui::SameLine();
+        ImGui::Image((void*)GetCardTexture(g_pd3dDevice, player.second_card_number, player.second_card_type), ImVec2(134 / 4, 186 / 4));
+        ImGui::NextColumn();
+
+        ImGui::Text("%i", player.chip_size);
+        ImGui::NextColumn();
+
+        ImGui::Text("%i", player.bet_amount);
+        ImGui::NextColumn();
+
+        ImGui::Text("%i", player.bet_total);
+        ImGui::NextColumn();
+
+        ImGui::Text("%i", player.chip_size + player.bet_amount);
+        ImGui::NextColumn();
+
+        ImGui::Text("%s", player.state == 1 ? "FOLDED/SITTING OUT" : "IN");
+        ImGui::NextColumn();
+    }
+
+    std::string player_name = "greenarr0528";
+
+    auto it = std::find_if(players.begin(), players.end(), [&player_name](const Player& obj) {return obj.name == player_name; });
+
+    if (it != players.end())
+    {
+        auto index = std::distance(players.begin(), it);
+
+        Player current_player = players.at(index);
+
+        if (current_player.first_card_number != 0 && current_player.second_card_number != 0)
+        {
+            std::string my_hand = pp_card(current_player.first_card_number, current_player.first_card_type) + pp_card(current_player.second_card_number, current_player.second_card_type);
+            std::string table_hand;
+
+            for (Card& card : cards)
+            {
+                if (card.number != 0)
+                {
+                    table_hand += pp_card(card.number, card.type);
+                }
+            }
+
+            //printf("[my_hand] %s\n", my_hand.c_str());
+            //printf("[table_hand] %s\n", table_hand.c_str());
+
+            float equity = GetEquity(my_hand, players.size() - 1, table_hand);
+            printf("[equity] %f\n", equity);
+        }
+    }
+
+    ImGui::Columns(1);
+    ImGui::Separator();
+
+    players.clear();
+    cards.clear();
+}
+
+void Draw()
+{
     if (do_once) {
         LoadImages(g_pd3dDevice);
         do_once = false;
     }
 
-    //bool show_demo_window = 1;
-    //if (show_demo_window)
-    //   ImGui::ShowDemoWindow(&show_demo_window);
-
     ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize(ImVec2(width, height), ImGuiCond_FirstUseEver);
 
-    ImGui::Begin("##Backbuffer", nullptr, ImGuiWindowFlags_NoMouseInputs | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize);
+    ImGui::Begin("##Backbuffer", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize);
     {
         uint32_t normal_tables = mem->Read<uint32_t>(table_manager + 0x14);
 
         uint32_t unk_0 = mem->Read<uint32_t>(table_manager + 0x20);
         uint32_t tournament_tables = mem->Read<uint32_t>(unk_0 + 0x4);
 
-        int amount_of_tables = 1;
+        std::vector<std::string> table_names;
 
+        int current_normal_table = 0;
+    
+        ImGuiTabBarFlags tab_bar_flags = ImGuiTabBarFlags_None;
+        if (ImGui::BeginTabBar("MyTabBar", tab_bar_flags))
+        {
+            // Normal tables
+            while (true)
+            {
+                uint32_t table = mem->Read<uint32_t>(normal_tables + (0x4 * current_normal_table));
+                uint32_t table_client_data = mem->Read<uint32_t>(table + 0x164);
+
+                char table_name[15];
+                uint32_t table_name_ptr = mem->Read<uint32_t>(table_client_data + 0xC4);
+                mem->ReadBuffer(table_name_ptr, &table_name, sizeof(table_name));
+
+
+                if (std::find(table_names.begin(), table_names.end(), table_name) != table_names.end()) {
+                    /* v contains x */
+                    break;
+                }
+                else {
+                    /* v does not contain x */
+                    table_names.push_back(table_name);
+                }
+            
+
+                if (ImGui::BeginTabItem(table_name))
+                {
+                    DrawTableInfo(table, table_client_data, table_name);
+
+                    ImGui::EndTabItem();
+                }
+                current_normal_table++;
+            }
+
+            int current_tournament_table = 0;
+
+            //Tournament tables
+            while (true)
+            {
+                uint32_t table = mem->Read<uint32_t>(tournament_tables + (0x4 * current_tournament_table));
+                uint32_t table_client_data = mem->Read<uint32_t>(table + 0x164);
+
+                char table_name[15];
+                uint32_t table_name_ptr = mem->Read<uint32_t>(table_client_data + 0xC4);
+                mem->ReadBuffer(table_name_ptr, &table_name, sizeof(table_name));
+
+                if (std::find(table_names.begin(), table_names.end(), table_name) != table_names.end()) {
+                    /* v contains x */
+                    break;
+                }
+                else {
+                    /* v does not contain x */
+                    table_names.push_back(table_name);
+                }
+
+                if (ImGui::BeginTabItem(table_name))
+                {
+                    DrawTableInfo(table, table_client_data, table_name);
+
+                    ImGui::EndTabItem();
+                }
+                current_tournament_table++;
+            }
+
+            ImGui::EndTabBar();
+        }
+
+        
+        /*
         for (int i = 0; i < 3; i++) {
             uint32_t table = mem->Read<uint32_t>(normal_tables + (0x4 * i));
             //uint32_t table = mem->Read<uint32_t>(tournament_tables + (0x4 * i));
@@ -326,11 +529,15 @@ void Draw()
             ImGui::Columns(1);
             ImGui::Separator();
         }
-    }
+        */
+      }
     ImGui::End();
 
-    players.clear();
-    cards.clear();
+    //bool show_demo_window = 1;
+    //if (show_demo_window)
+    //    ImGui::ShowDemoWindow(&show_demo_window);
+
+    
 }
 
 std::string random_string(const int len) {
