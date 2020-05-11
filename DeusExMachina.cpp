@@ -204,8 +204,8 @@ void DrawTableInfo(uint32_t table, uint32_t table_client_data, char* table_name)
     ImGui::Text("ID"); ImGui::NextColumn();
     ImGui::Text("Name"); ImGui::NextColumn();
     ImGui::Text("Amount"); ImGui::NextColumn();
-    ImGui::Text("InPlay Current Hand"); ImGui::NextColumn();
-    ImGui::Text("InPlay Total"); ImGui::NextColumn();
+    ImGui::Text("Current Bet"); ImGui::NextColumn();
+    ImGui::Text("Total Bet"); ImGui::NextColumn();
     ImGui::Text("Total"); ImGui::NextColumn();
     ImGui::Text("State"); ImGui::NextColumn();
     ImGui::Separator();

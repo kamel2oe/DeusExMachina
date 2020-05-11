@@ -70,6 +70,7 @@ PDIRECT3DTEXTURE9 ace_diamonds_tex = NULL;
 PDIRECT3DTEXTURE9 ace_hearts_tex = NULL;
 PDIRECT3DTEXTURE9 ace_spades_tex = NULL;
 PDIRECT3DTEXTURE9 blank_tex = NULL;
+PDIRECT3DTEXTURE9 back_tex = NULL;
 
 // Simple helper function to load an image into a DX9 texture with common settings
 bool LoadTextureFromMemory(LPDIRECT3DDEVICE9 device, const unsigned char* data, int size, PDIRECT3DTEXTURE9* out_texture, int* out_width, int* out_height)
@@ -251,6 +252,7 @@ void LoadImages(LPDIRECT3DDEVICE9 device)
     ace_hearts_tex = LoadImageFromMemory(device, ace_hearts_png, sizeof(ace_hearts_png));
     ace_spades_tex = LoadImageFromMemory(device, ace_spades_png, sizeof(ace_spades_png));
     blank_tex = LoadImageFromMemory(device, blank_png, sizeof(blank_png));
+    back_tex = LoadImageFromMemory(device, back_png, sizeof(back_png));
 }
 
 PDIRECT3DTEXTURE9 GetCardTexture(LPDIRECT3DDEVICE9 device, int number, int type)
@@ -362,6 +364,6 @@ PDIRECT3DTEXTURE9 GetCardTexture(LPDIRECT3DDEVICE9 device, int number, int type)
     case 115: return ace_spades_tex;
     };
 
-    default: return blank_tex;
+    default: return back_tex;
     }
 }
