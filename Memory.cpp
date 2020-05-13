@@ -7,8 +7,6 @@
 #include <stdio.h>
 #include "Memory.h"
 
-Memory* mem = new Memory();
-
 Memory::Memory()
 {
 }

@@ -4,16 +4,18 @@
 
 #include "framework.h"
 #include "DeusExMachina.h"
-#include "Memory.h"
 #include "omp/EquityCalculator.h"
+#include "Player.h"
+#include "Card.h"
+#include "GameManager.h"
 
 // Forward declarations of functions included in this code module:
 BOOL                InitInstance(HINSTANCE);
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
-
 bool CreateDeviceD3D(HWND hWnd);
 void CleanupDeviceD3D();
 void ResetDevice();
+
 int width = 1000;
 int height = 1000;
 uintptr_t base_address;
@@ -25,6 +27,8 @@ bool do_once = true;
 static LPDIRECT3D9              g_pD3D = NULL;
 static LPDIRECT3DDEVICE9        g_pd3dDevice = NULL;
 static D3DPRESENT_PARAMETERS    g_d3dpp = {};
+
+Memory* mem = new Memory();
 
 float GetEquity(std::string my_hand, int players, std::string cards)
 {
@@ -65,21 +69,21 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
     base_address = (uintptr_t)module.modBaseAddr;
     base_size = module.modBaseSize;
-    printf("[base_address] %X [size] %X\n", base_address, base_size);
+    //printf("[base_address] %X [size] %X\n", base_address, base_size);
 
     //mov eax,["PokerStars.exe"+12D8994]
     //AppModule : CommClientAuthCallback
     uint32_t table_manager_offset = mem->FindPattern(module, "\xa1\x00\x00\x00\x00\x85\xc0\x74\x00\x8b\xe5\x5d\xc3\x68\x00\x00\x00\x00\x68\x00\x00\x00\x00\x68\x00\x00\x00\x00\x8d\x4d\x00\xe8\x00\x00\x00\x00\x68\x00\x00\x00\x00\x8d\x45\x00\x50\xe8\x00\x00\x00\x00\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xcc\x55\x8b\xec\x51", "x????xxx?xxxxx????x????x????xx?x????x????xx?xx????xxxxxxxxxxxxxx") + 1;
     printf("[table_manager_offset] 0x%X\n", table_manager_offset);
-    printf("[table_manager_offset] 0x%X\n", table_manager_offset - base_address);
 
     uint32_t table_manager_func = mem->Read<uint32_t>(table_manager_offset);
     printf("[table_manager_func] 0x%X\n", table_manager_func);
-    printf("[table_manager_func - base_address] 0x%X\n", table_manager_func - base_address);
 
     table_manager = mem->Read<uint32_t>(table_manager_func);
     printf("[table_manager] 0x%X\n", table_manager);
-    printf("[table_manager - base_address] 0x%X\n", table_manager - base_address);
+
+    GameManager game_manager(mem, table_manager);
+    game_manager.Read();
 
     // Perform application initialization:
     if (!InitInstance(hInstance))
@@ -87,76 +91,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
         return FALSE;
     }
 }
-
-enum Stages : int
-{
-    PreFlop = 0,
-    Flop = 1,
-    Turn = 2,
-    River = 3
-};
-
-class Player
-{
-    uintptr_t base;
-public:
-    char name[15];
-    int first_card_number;
-    int first_card_type;
-    int second_card_number;
-    int second_card_type;
-    int chip_size;
-    int bet_amount;
-    int bet_total;
-    int state;
-
-    Player(uintptr_t player_address) {
-        base = player_address;
-        Read();
-    }
-
-    void Read()
-    {
-        mem->ReadBuffer(base + 0x8, &name, sizeof(name));
-
-        first_card_number = mem->Read<int>(base + 0xF0);
-        first_card_type = mem->Read<int>(base + 0xF4);
-
-        second_card_number = mem->Read<int>(base + 0xF8);
-        second_card_type = mem->Read<int>(base + 0xFC);
-
-        chip_size = mem->Read<int>(base + 0xB0);
-        bet_amount = mem->Read<int>(base + 0xB8);
-        bet_total = mem->Read<int>(base + 0x88);
-        state = mem->Read<int>(base + 0xD0);
-    }
-
-    bool IsValid()
-    {
-        mem->ReadBuffer(base + 0x8, &name, sizeof(name));
-        return strlen(name) != 0;
-    }
-};
-
-class Card
-{
-    uintptr_t base;
-public:
-    int number;
-    int type;
-
-    Card(uintptr_t card_address)
-    {
-        base = card_address;
-        Read();
-    }
-
-    void Read()
-    {
-        number = mem->Read<int>(base);
-        type = mem->Read<int>(base + 0x4);
-    }
-};
 
 void DrawTableInfo(uint32_t table, uint32_t table_client_data, char* table_name)
 {
@@ -169,8 +103,8 @@ void DrawTableInfo(uint32_t table, uint32_t table_client_data, char* table_name)
     uint32_t cards_on_display_count = mem->Read<uint32_t>(table_client_data + 0xB50);
     uint32_t pot_size = mem->Read<uint32_t>(table_client_data + 0x234);
 
-    uint32_t dealer_player_id = mem->Read<uint32_t>(table + 0xF18);
-    uint32_t current_player_id = mem->Read<uint32_t>(table + 0xF1C);
+    uint32_t dealer_player_id = mem->Read<uint32_t>(table + 0xF20);
+    uint32_t current_player_id = mem->Read<uint32_t>(table + 0xF24);
 
     ImGui::Text("Table Name: %s", table_name);
 
@@ -189,7 +123,7 @@ void DrawTableInfo(uint32_t table, uint32_t table_client_data, char* table_name)
     for (int i = 0; i < 5; i++) {
         uint32_t card_address = (table_client_data + 0xB5C) + (0x8 * i);
 
-        Card card(card_address);
+        Card card(mem, card_address);
 
         ImGui::Image((void*)GetCardTexture(g_pd3dDevice, card.number, card.type), ImVec2(134 / 3, 186 / 3));
 
@@ -214,7 +148,7 @@ void DrawTableInfo(uint32_t table, uint32_t table_client_data, char* table_name)
     {
         uint32_t player_address = (table_client_data + 0xC08) + (player_size * i);
 
-        Player player(player_address);
+        Player player(mem, player_address);
 
         if (!player.IsValid())
             continue;

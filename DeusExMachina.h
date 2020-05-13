@@ -3,6 +3,7 @@
 #include "resource.h"
 #include "images.h"
 #include "fonts.h"
+#include "Memory.h"
 
 #include "imgui/imgui.h"
 #include "imgui/imgui_impl_dx9.h"
