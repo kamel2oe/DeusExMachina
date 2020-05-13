@@ -10,6 +10,7 @@ public:
 
     Card(Memory* memory, uintptr_t card_address)
     {
+        mem = memory;
         base = card_address;
         Read();
     }

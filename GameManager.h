@@ -9,6 +9,7 @@ public:
     uint32_t cached_button_id = -1;
     uint32_t cached_turn_id = -1;
     std::vector<Player> players;
+    std::vector<Card> cards;
     uint32_t player_size = 0x1F8;
 
     GameManager(Memory* memory, uintptr_t table_manager_address)
@@ -43,6 +44,7 @@ public:
 
                 printf("NEW ROUND\n");
                 players.clear();
+                cards.clear();
 
                 for (int i = 0; i < 9; i++)
                 {
@@ -96,13 +98,27 @@ public:
 
             if (cached_cards_on_display_count != cards_on_display_count)
             {
+
                 cached_cards_on_display_count = cards_on_display_count;
 
                 switch (cards_on_display_count) {
                 case 0: printf("*** HOLE CARDS ***\n"); break;
-                case 3: printf("*** FLOP ***\n"); break;
-                case 4: printf("*** TURN ***\n"); break;
-                case 5: printf("*** RIVER ***\n"); break;
+                case 3: printf("*** FLOP *** "); break;
+                case 4: printf("*** TURN *** "); break;
+                case 5: printf("*** RIVER *** "); break;
+                }
+
+                if (cards_on_display_count > 0)
+                {
+                    for (int i = 0; i < cards_on_display_count; i++) {
+                        uint32_t card_address = (table_client_data + 0xB5C) + (0x8 * i);
+
+                        Card card(mem, card_address);
+
+                        printf("%s ", pp_card(card.number, card.type));
+                    }
+
+                    printf("\n");
                 }
             }
         }
