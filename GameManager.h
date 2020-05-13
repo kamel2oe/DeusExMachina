@@ -48,17 +48,18 @@ public:
                 {
                     uint32_t player_address = (table_client_data + 0xC08) + (player_size * i);
 
-                    Player player(mem, player_address);
+                    Player player(mem, player_address, i);
 
                     if (!player.IsValid())
                         continue;
 
-                    if (player.IsOut())
-                        continue;
+                    //if (player.IsOut())
+                    //    continue;
 
-                    players.push_back(player);
+                    //players.push_back(player);
+                    players.insert(players.begin() + i, player);
 
-                    printf("Seat %i: %s (%i in chips)\n", i + 1, player.name, player.chip_size / 100);
+                    printf("Seat %i: %s (%i in chips) %s\n", i, player.name, player.chip_size, player.IsOut() ? "OUT" : "IN");
                 }
 
                 printf("#%i is the button\n", button_id);
@@ -66,9 +67,35 @@ public:
 
             if (cached_turn_id != turn_id && turn_id != -1)
             {
+                uint32_t previous_turn_id = cached_turn_id;
+
                 cached_turn_id = turn_id;
 
-                printf("#%i turn\n", turn_id);
+                if (previous_turn_id != -1)
+                {
+                    Player current_player = players.at(previous_turn_id);
+
+                    current_player.Read();
+
+                    if (current_player.IsOut())
+                    {
+                        printf("%s folds\n", current_player.name);
+                    }
+                    else
+                    {
+                        if (current_player.bet_amount > 0)
+                        {
+                            printf("%s bets %i\n", current_player.name, current_player.bet_amount);
+                        }
+                        else
+                        {
+                            printf("%s checks\n", current_player.name);
+                        }
+                    }
+                }
+
+                //Player player = players.at(turn_id);
+                //printf("%s turn #%i\n", player.name, turn_id);
             }
 
             if (cached_cards_on_display_count != cards_on_display_count)

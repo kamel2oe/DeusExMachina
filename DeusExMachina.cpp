@@ -148,7 +148,7 @@ void DrawTableInfo(uint32_t table, uint32_t table_client_data, char* table_name)
     {
         uint32_t player_address = (table_client_data + 0xC08) + (player_size * i);
 
-        Player player(mem, player_address);
+        Player player(mem, player_address, i);
 
         if (!player.IsValid())
             continue;

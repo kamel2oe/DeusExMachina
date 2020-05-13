@@ -5,6 +5,7 @@ class Player
     uintptr_t base;
     Memory* mem;
 public:
+    int id;
     char name[15];
     int first_card_number;
     int first_card_type;
@@ -15,9 +16,10 @@ public:
     int bet_total;
     int state;
 
-    Player(Memory* memory, uintptr_t player_address) {
-        base = player_address;
+    Player(Memory* memory, uintptr_t player_address, int index) {
         mem = memory;
+        base = player_address;
+        id = index;
         Read();
     }
 
