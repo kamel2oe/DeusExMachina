@@ -42,7 +42,7 @@ public:
                 cached_button_id = button_id;
 
                 printf("NEW ROUND\n");
-                players.empty();
+                players.clear();
 
                 for (int i = 0; i < 9; i++)
                 {
@@ -53,10 +53,6 @@ public:
                     if (!player.IsValid())
                         continue;
 
-                    //if (player.IsOut())
-                    //    continue;
-
-                    //players.push_back(player);
                     players.insert(players.begin() + i, player);
 
                     printf("Seat %i: %s (%i in chips) %s\n", i, player.name, player.chip_size, player.IsOut() ? "OUT" : "IN");
