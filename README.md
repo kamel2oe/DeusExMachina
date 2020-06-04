@@ -8,6 +8,10 @@ Will use tensorflow, C++, imgui (GUI) and reverse engineering.
 
 Platform(s) supported: Windows
 
+Requirments:
+
+[DirectX Software Development Kit](https://www.microsoft.com/en-gb/download/details.aspx?id=6812)
+
 **Work in progress**
 
 Features:
