@@ -1,3 +1,4 @@
+#pragma once
 #include <string>
 #include <random>
 #include <set>
@@ -5,9 +6,12 @@
 #include "framework.h"
 #include "DeusExMachina.h"
 #include "omp/EquityCalculator.h"
+//#include "Player.h"
+//#include "Card.h"
+//#include "GameManager.h"
+#include "Memory.h"
 #include "Player.h"
 #include "Card.h"
-#include "GameManager.h"
 
 // Forward declarations of functions included in this code module:
 BOOL                InitInstance(HINSTANCE);
@@ -18,9 +22,6 @@ void ResetDevice();
 
 int width = 1000;
 int height = 1000;
-uintptr_t base_address;
-uintptr_t base_size;
-uintptr_t table_manager;
 
 bool do_once = true;
 
@@ -28,8 +29,7 @@ static LPDIRECT3D9              g_pD3D = NULL;
 static LPDIRECT3DDEVICE9        g_pd3dDevice = NULL;
 static D3DPRESENT_PARAMETERS    g_d3dpp = {};
 
-Memory* mem = new Memory();
-
+/*
 float GetEquity(std::string my_hand, int players, std::string cards)
 {
     printf("hand: %s cards: %s, players: %i\n", my_hand.c_str(), cards.c_str(), players);
@@ -50,6 +50,7 @@ float GetEquity(std::string my_hand, int players, std::string cards)
 
     return r.equity[0];
 }
+*/
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                      _In_opt_ HINSTANCE hPrevInstance,
@@ -64,26 +65,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
     mem->FindProcess("PokerStars.exe");
     mem->Open();
-
-    MODULEENTRY32 module = mem->FindModule("PokerStars.exe");
-
-    base_address = (uintptr_t)module.modBaseAddr;
-    base_size = module.modBaseSize;
-    //printf("[base_address] %X [size] %X\n", base_address, base_size);
-
-    //mov eax,["PokerStars.exe"+12D8994]
-    //AppModule : CommClientAuthCallback
-    uint32_t table_manager_offset = mem->FindPattern(module, "\xa1\x00\x00\x00\x00\x85\xc0\x74\x00\x8b\xe5\x5d\xc3\x68\x00\x00\x00\x00\x68\x00\x00\x00\x00\x68\x00\x00\x00\x00\x8d\x4d\x00\xe8\x00\x00\x00\x00\x68\x00\x00\x00\x00\x8d\x45\x00\x50\xe8\x00\x00\x00\x00\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xcc\x55\x8b\xec\x51", "x????xxx?xxxxx????x????x????xx?x????x????xx?xx????xxxxxxxxxxxxxx") + 1;
-    printf("[table_manager_offset] 0x%X\n", table_manager_offset);
-
-    uint32_t table_manager_func = mem->Read<uint32_t>(table_manager_offset);
-    printf("[table_manager_func] 0x%X\n", table_manager_func);
-
-    table_manager = mem->Read<uint32_t>(table_manager_func);
-    printf("[table_manager] 0x%X\n", table_manager);
-
-    GameManager game_manager(mem, table_manager);
-    game_manager.Read();
 
     // Perform application initialization:
     if (!InitInstance(hInstance))
@@ -194,6 +175,7 @@ void DrawTableInfo(uint32_t table, uint32_t table_client_data, char* table_name)
         ImGui::NextColumn();
     }
 
+    /*
     std::string player_name = "greenarr0528";
 
     auto it = std::find_if(players.begin(), players.end(), [&player_name](const Player& obj) {return obj.name == player_name; });
@@ -224,6 +206,7 @@ void DrawTableInfo(uint32_t table, uint32_t table_client_data, char* table_name)
             printf("[equity] %f\n", equity);
         }
     }
+    */
 
     ImGui::Columns(1);
     ImGui::Separator();
@@ -232,10 +215,16 @@ void DrawTableInfo(uint32_t table, uint32_t table_client_data, char* table_name)
     cards.clear();
 }
 
+std::vector<uintptr_t> tables;
+
 void Draw()
 {
+    std::vector<std::string> table_names;
+
     if (do_once) {
         LoadImages(g_pd3dDevice);
+        //1d52f10 : fb2f10 : 10 2f d5 01 : Table::LobbyTableData2
+        tables = mem->FindReferences("\x10\x2f\xd5\x01\x01", "xxxxx", 100);
         do_once = false;
     }
 
@@ -244,29 +233,12 @@ void Draw()
 
     ImGui::Begin("##Backbuffer", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize);
     {
-        uint32_t normal_tables = mem->Read<uint32_t>(table_manager + 0x14);
-
-        uint32_t unk_0 = mem->Read<uint32_t>(table_manager + 0x20);
-        uint32_t tournament_tables = mem->Read<uint32_t>(unk_0 + 0x4);
-
-        std::vector<std::string> table_names;
-
         ImGuiTabBarFlags tab_bar_flags = ImGuiTabBarFlags_None;
         if (ImGui::BeginTabBar("MyTabBar", tab_bar_flags))
         {
-            int current_normal_table = 0;
-
-            // Normal tables
-            while (true)
-            {
-                uint32_t table = mem->Read<uint32_t>(normal_tables + (0x4 * current_normal_table));
-                uint32_t table_client_data = mem->Read<uint32_t>(table + 0x164);
-
-                int valid = mem->Read<int>(table + 0x2A0);
-
-                if (valid == 0)
-                    break;
-
+            for (auto& table : tables) {
+                uintptr_t table_client_data = mem->Read<uintptr_t>(table - 0x14);
+                
                 char table_name[15];
                 uint32_t table_name_ptr = mem->Read<uint32_t>(table_client_data + 0xC4);
                 mem->ReadBuffer(table_name_ptr, &table_name, sizeof(table_name));
@@ -284,45 +256,9 @@ void Draw()
 
                     ImGui::EndTabItem();
                 }
-                current_normal_table++;
             }
-
-            int current_tournament_table = 0;
-
-            //Tournament tables
-            while (true)
-            {
-                uint32_t table = mem->Read<uint32_t>(tournament_tables + (0x4 * current_tournament_table));
-                uint32_t table_client_data = mem->Read<uint32_t>(table + 0x164);
-
-                int valid = mem->Read<int>(table + 0x2A0);
-
-                if (valid == 0)
-                    break;
-
-                char table_name[15];
-                uint32_t table_name_ptr = mem->Read<uint32_t>(table_client_data + 0xC4);
-                mem->ReadBuffer(table_name_ptr, &table_name, sizeof(table_name));
-
-                if (std::find(table_names.begin(), table_names.end(), table_name) != table_names.end()) {
-                    break;
-                }
-                else {
-                    table_names.push_back(table_name);
-                }
-
-                if (ImGui::BeginTabItem(table_name))
-                {
-                    DrawTableInfo(table, table_client_data, table_name);
-
-                    ImGui::EndTabItem();
-                }
-                current_tournament_table++;
-            }
-
             ImGui::EndTabBar();
         }
-      
         table_names.empty();
     }
     ImGui::End();
@@ -330,8 +266,6 @@ void Draw()
     //bool show_demo_window = 1;
     //if (show_demo_window)
     //    ImGui::ShowDemoWindow(&show_demo_window);
-
-    
 }
 
 std::string random_string(const int len) {

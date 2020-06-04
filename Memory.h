@@ -10,6 +10,7 @@
 #include <vector>
 #include "TCHAR.h"
 #include <codecvt>
+#include <thread>
 
 class Memory
 {
@@ -26,6 +27,10 @@ public:
 	MODULEENTRY32 FindModule(const std::string& name);
 
 	uintptr_t FindPattern(MODULEENTRY32 module, const char* pattern, const char* mask);
+
+	std::vector<uintptr_t> FindReferences(const char* pattern, const char* mask, const size_t numThreads);
+
+	void PatternScanImpl(std::vector<uintptr_t>& addresses, const uint8_t* const pattern, const char* const mask, uintptr_t start, const uintptr_t end) const;
 
 	template <typename T>
 	T Read(uint64_t address);
