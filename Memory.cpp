@@ -165,14 +165,6 @@ void Memory::PatternScanImpl(std::vector<uintptr_t> &addresses, const uint8_t* c
 					if (it == addresses.end()) {
 						addresses.push_back(addressMatch);
 					}
-					
-					/*
-					uintptr_t addressMatch = start + i; //Found match
-					printf("found 0x%X\n", addressMatch);
-					if (addressMatch < address.load())
-						address = addressMatch;
-					return;
-					*/
 				}
 			byte_not_match:
 				bytes++;

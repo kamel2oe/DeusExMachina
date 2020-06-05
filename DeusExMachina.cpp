@@ -6,12 +6,8 @@
 #include "framework.h"
 #include "DeusExMachina.h"
 #include "omp/EquityCalculator.h"
-//#include "Player.h"
-//#include "Card.h"
-//#include "GameManager.h"
-#include "Memory.h"
-#include "Player.h"
-#include "Card.h"
+
+#include "Draw.h"
 
 // Forward declarations of functions included in this code module:
 BOOL                InitInstance(HINSTANCE);
@@ -19,11 +15,6 @@ LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
 bool CreateDeviceD3D(HWND hWnd);
 void CleanupDeviceD3D();
 void ResetDevice();
-
-int width = 1000;
-int height = 1000;
-
-bool do_once = true;
 
 static LPDIRECT3D9              g_pD3D = NULL;
 static LPDIRECT3DDEVICE9        g_pd3dDevice = NULL;
@@ -73,201 +64,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     }
 }
 
-void DrawTableInfo(uint32_t table, uint32_t table_client_data, char* table_name)
-{
-    std::vector<Player> players;
-    std::vector<Card> cards;
-
-    uint32_t player_offset = 0xC08;
-    uint32_t player_size = 0x1F8;
-
-    uint32_t cards_on_display_count = mem->Read<uint32_t>(table_client_data + 0xB50);
-    uint32_t pot_size = mem->Read<uint32_t>(table_client_data + 0x234);
-
-    uint32_t dealer_player_id = mem->Read<uint32_t>(table + 0xF20);
-    uint32_t current_player_id = mem->Read<uint32_t>(table + 0xF24);
-
-    ImGui::Text("Table Name: %s", table_name);
-
-    ImGui::Text("Cards: %i", cards_on_display_count);
-    ImGui::Text("Pot: %i", pot_size);
-
-    ImGui::Text("Dealer Player ID: %i", dealer_player_id);
-    ImGui::Text("Current Player ID: %i", current_player_id);
-
-    uint32_t ante = mem->Read<uint32_t>(table_client_data + 0x298);
-    uint32_t small_blind = mem->Read<uint32_t>(table_client_data + 0xEC);
-    uint32_t big_blind = mem->Read<uint32_t>(table_client_data + 0xF0);
-
-    ImGui::Text("Ante %i, Small Blind %i, Big Blind %i", ante, small_blind, big_blind);
-
-    for (int i = 0; i < 5; i++) {
-        uint32_t card_address = (table_client_data + 0xB5C) + (0x8 * i);
-
-        Card card(mem, card_address);
-
-        ImGui::Image((void*)GetCardTexture(g_pd3dDevice, card.number, card.type), ImVec2(134 / 3, 186 / 3));
-
-        if (i != 4)
-            ImGui::SameLine();
-
-        cards.push_back(card);
-    }
-
-    ImGui::Columns(7, "mycolumns");
-    ImGui::Separator();
-    ImGui::Text("ID"); ImGui::NextColumn();
-    ImGui::Text("Name"); ImGui::NextColumn();
-    ImGui::Text("Amount"); ImGui::NextColumn();
-    ImGui::Text("Current Bet"); ImGui::NextColumn();
-    ImGui::Text("Total Bet"); ImGui::NextColumn();
-    ImGui::Text("Total"); ImGui::NextColumn();
-    ImGui::Text("State"); ImGui::NextColumn();
-    ImGui::Separator();
-
-    for (int i = 0; i < 9; i++)
-    {
-        uint32_t player_address = (table_client_data + 0xC08) + (player_size * i);
-
-        Player player(mem, player_address, i);
-
-        if (!player.IsValid())
-            continue;
-
-        players.push_back(player);
-
-        if (dealer_player_id == i) {
-            ImGui::Text("%i D", i);
-        }
-        else if (dealer_player_id + 1 == i)
-        {
-            ImGui::Text("%i SB", i);
-        }
-        else if (dealer_player_id + 2 == i)
-        {
-            ImGui::Text("%i BB", i);
-        }
-        else {
-            ImGui::Text("%i", i);
-        }
-        ImGui::NextColumn();
-
-        ImGui::Text("%s", player.name);
-
-        ImGui::Image((void*)GetCardTexture(g_pd3dDevice, player.first_card_number, player.first_card_type), ImVec2(134 / 4, 186 / 4));
-        ImGui::SameLine();
-        ImGui::Image((void*)GetCardTexture(g_pd3dDevice, player.second_card_number, player.second_card_type), ImVec2(134 / 4, 186 / 4));
-        ImGui::NextColumn();
-
-        ImGui::Text("%i", player.chip_size);
-        ImGui::NextColumn();
-
-        ImGui::Text("%i", player.bet_amount);
-        ImGui::NextColumn();
-
-        ImGui::Text("%i", player.bet_total);
-        ImGui::NextColumn();
-
-        ImGui::Text("%i", player.chip_size + player.bet_amount);
-        ImGui::NextColumn();
-
-        ImGui::Text("%s", player.state == 1 ? "FOLDED/SITTING OUT" : "IN");
-        ImGui::NextColumn();
-    }
-
-    /*
-    std::string player_name = "greenarr0528";
-
-    auto it = std::find_if(players.begin(), players.end(), [&player_name](const Player& obj) {return obj.name == player_name; });
-
-    if (it != players.end())
-    {
-        auto index = std::distance(players.begin(), it);
-
-        Player current_player = players.at(index);
-
-        if (current_player.first_card_number != 0 && current_player.second_card_number != 0)
-        {
-            std::string my_hand = pp_card(current_player.first_card_number, current_player.first_card_type) + pp_card(current_player.second_card_number, current_player.second_card_type);
-            std::string table_hand;
-
-            for (Card& card : cards)
-            {
-                if (card.number != 0)
-                {
-                    table_hand += pp_card(card.number, card.type);
-                }
-            }
-
-            //printf("[my_hand] %s\n", my_hand.c_str());
-            //printf("[table_hand] %s\n", table_hand.c_str());
-
-            float equity = GetEquity(my_hand, players.size() - 1, table_hand);
-            printf("[equity] %f\n", equity);
-        }
-    }
-    */
-
-    ImGui::Columns(1);
-    ImGui::Separator();
-
-    players.clear();
-    cards.clear();
-}
-
-std::vector<uintptr_t> tables;
-
-void Draw()
-{
-    std::vector<std::string> table_names;
-
-    if (do_once) {
-        LoadImages(g_pd3dDevice);
-        //1d52f10 : fb2f10 : 10 2f d5 01 : Table::LobbyTableData2
-        tables = mem->FindReferences("\x10\x2f\xd5\x01\x01", "xxxxx", 100);
-        do_once = false;
-    }
-
-    ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(width, height), ImGuiCond_FirstUseEver);
-
-    ImGui::Begin("##Backbuffer", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize);
-    {
-        ImGuiTabBarFlags tab_bar_flags = ImGuiTabBarFlags_None;
-        if (ImGui::BeginTabBar("MyTabBar", tab_bar_flags))
-        {
-            for (auto& table : tables) {
-                uintptr_t table_client_data = mem->Read<uintptr_t>(table - 0x14);
-                
-                char table_name[15];
-                uint32_t table_name_ptr = mem->Read<uint32_t>(table_client_data + 0xC4);
-                mem->ReadBuffer(table_name_ptr, &table_name, sizeof(table_name));
-
-                if (std::find(table_names.begin(), table_names.end(), table_name) != table_names.end()) {
-                    break;
-                }
-                else {
-                    table_names.push_back(table_name);
-                }
-
-                if (ImGui::BeginTabItem(table_name))
-                {
-                    DrawTableInfo(table, table_client_data, table_name);
-
-                    ImGui::EndTabItem();
-                }
-            }
-            ImGui::EndTabBar();
-        }
-        table_names.empty();
-    }
-    ImGui::End();
-
-    //bool show_demo_window = 1;
-    //if (show_demo_window)
-    //    ImGui::ShowDemoWindow(&show_demo_window);
-}
-
 std::string random_string(const int len) {
     const std::string alpha_numeric("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890");
 
@@ -287,7 +83,7 @@ BOOL InitInstance(HINSTANCE hInstance)
     // Create application window
     WNDCLASSEX wc = { sizeof(WNDCLASSEX), CS_CLASSDC, WndProc, 0L, 0L, GetModuleHandle(NULL), NULL, NULL, NULL, NULL, _T("1"), NULL };
     ::RegisterClassEx(&wc);
-    HWND hwnd = ::CreateWindow(wc.lpszClassName, random_string(12).c_str(), WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX, 100, 100, width, height, NULL, NULL, wc.hInstance, NULL);
+    HWND hwnd = ::CreateWindow(wc.lpszClassName, random_string(12).c_str(), WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX, 100, 100, 1000, 1000, NULL, NULL, wc.hInstance, NULL);
 
     // Initialize Direct3D
     if (!CreateDeviceD3D(hwnd))
@@ -313,7 +109,7 @@ BOOL InitInstance(HINSTANCE hInstance)
     ImGui_ImplWin32_Init(hwnd);
     ImGui_ImplDX9_Init(g_pd3dDevice);
 
-    io.Fonts->AddFontFromMemoryCompressedTTF(RobotoBlack_compressed_data, 1.0f, 16.0f);
+    io.Fonts->AddFontFromMemoryCompressedTTF(RobotoBlack_compressed_data, 1, 16.0f);
 
     ImVec4 clear_color = ImVec4(0.f, 0.f, 0.f, 1.0f);
 
@@ -414,7 +210,7 @@ BOOL InitInstance(HINSTANCE hInstance)
         ImGui_ImplWin32_NewFrame();
         ImGui::NewFrame();
 
-        Draw();
+        Draw(g_pd3dDevice);
 
         ImGui::EndFrame();
         g_pd3dDevice->SetRenderState(D3DRS_ZENABLE, FALSE);
@@ -484,16 +280,6 @@ void CleanupDeviceD3D()
 // Forward declare message handler from imgui_impl_win32.cpp
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
-//
-//  FUNCTION: WndProc(HWND, UINT, WPARAM, LPARAM)
-//
-//  PURPOSE: Processes messages for the main window.
-//
-//  WM_COMMAND  - process the application menu
-//  WM_PAINT    - Paint the main window
-//  WM_DESTROY  - post a quit message and return
-//
-//
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     if (ImGui_ImplWin32_WndProcHandler(hWnd, message, wParam, lParam))

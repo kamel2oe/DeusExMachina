@@ -161,6 +161,7 @@
   <ItemGroup>
     <ClInclude Include="Card.h" />
     <ClInclude Include="DeusExMachina.h" />
+    <ClInclude Include="Draw.h" />
     <ClInclude Include="fonts.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="images.h" />
@@ -188,6 +189,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DeusExMachina.cpp" />
+    <ClCompile Include="Draw.cpp" />
     <ClCompile Include="imgui\imgui.cpp" />
     <ClCompile Include="imgui\imgui_demo.cpp" />
     <ClCompile Include="imgui\imgui_draw.cpp" />
