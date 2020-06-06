@@ -8,6 +8,7 @@
 #include "omp/EquityCalculator.h"
 
 #include "Draw.h"
+#include "Game.h"
 
 // Forward declarations of functions included in this code module:
 BOOL                InitInstance(HINSTANCE);
@@ -19,6 +20,8 @@ void ResetDevice();
 static LPDIRECT3D9              g_pD3D = NULL;
 static LPDIRECT3DDEVICE9        g_pd3dDevice = NULL;
 static D3DPRESENT_PARAMETERS    g_d3dpp = {};
+
+Game game;
 
 /*
 float GetEquity(std::string my_hand, int players, std::string cards)
@@ -43,6 +46,44 @@ float GetEquity(std::string my_hand, int players, std::string cards)
 }
 */
 
+void __stdcall game_update_thread(Game* game)
+{
+    while (true)
+    {
+        game->Read();
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    }
+}
+
+void __stdcall game_read_thread(Game* game)
+{
+    while (true)
+    {
+        printf("Tables: %i\n\n", game->tables.size());
+
+        for (auto& table : game->tables) {
+            printf("Table Name: %s\n", table.name);
+
+            for (std::size_t i = 0; i < table.cards.size(); ++i)
+            {
+                Card card = table.cards.at(i);
+                printf("num type %i %i\n", card.number, card.type);
+            }
+
+            for (auto& player : table.players)
+            {
+                printf("%s\n", player.name);
+            }
+
+            printf("\n");
+        }
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+        std::cout << "\n";
+    }
+}
+
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                      _In_opt_ HINSTANCE hPrevInstance,
                      _In_ LPWSTR    lpCmdLine,
@@ -57,11 +98,17 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     mem->FindProcess("PokerStars.exe");
     mem->Open();
 
+    std::thread game_update(&game_update_thread, &game);
+    std::thread game_read(&game_read_thread, &game);
+
     // Perform application initialization:
     if (!InitInstance(hInstance))
     {
         return FALSE;
     }
+
+    game_update.join();
+    game_read.join();
 }
 
 std::string random_string(const int len) {
@@ -210,7 +257,7 @@ BOOL InitInstance(HINSTANCE hInstance)
         ImGui_ImplWin32_NewFrame();
         ImGui::NewFrame();
 
-        Draw(g_pd3dDevice);
+        Draw(&game, g_pd3dDevice);
 
         ImGui::EndFrame();
         g_pd3dDevice->SetRenderState(D3DRS_ZENABLE, FALSE);

@@ -1,3 +1,4 @@
+/*
 #include <cstdint>
 
 class Player
@@ -50,4 +51,22 @@ public:
     {
         return (state == 1 || state == 0);
     }
+};
+*/
+
+#pragma once
+#include <cstdint>
+
+class Player
+{
+public:
+    uint32_t player_data;
+    char name[20];
+
+    Player(uint32_t player_data);
+    ~Player();
+
+    void Read();
+
+    bool IsValid();
 };

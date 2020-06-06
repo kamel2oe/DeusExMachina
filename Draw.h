@@ -13,4 +13,6 @@
 #pragma comment(lib, "D3dx9")
 #pragma comment(lib, "d3d9.lib")
 
-void Draw(LPDIRECT3DDEVICE9 g_pd3dDevice);
+#include "Game.h"
+
+void Draw(Game* game, LPDIRECT3DDEVICE9 g_pd3dDevice);

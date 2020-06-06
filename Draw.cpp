@@ -59,7 +59,6 @@ PDIRECT3DTEXTURE9 ace_spades_tex = NULL;
 PDIRECT3DTEXTURE9 blank_tex = NULL;
 PDIRECT3DTEXTURE9 back_tex = NULL;
 
-// Simple helper function to load an image into a DX9 texture with common settings
 bool LoadTextureFromMemory(LPDIRECT3DDEVICE9 device, const unsigned char* data, int size, PDIRECT3DTEXTURE9* out_texture, int* out_width, int* out_height)
 {
     PDIRECT3DTEXTURE9 texture;
@@ -268,8 +267,140 @@ PDIRECT3DTEXTURE9 GetCardTexture(LPDIRECT3DDEVICE9 device, int number, int type)
     }
 }
 
-void DrawTableInfo(LPDIRECT3DDEVICE9 g_pd3dDevice, uint32_t table, uint32_t table_client_data, char* table_name)
+// Usage:
+//  static ExampleAppLog my_log;
+//  my_log.AddLog("Hello %d world\n", 123);
+//  my_log.Draw("title");
+struct ExampleAppLog
 {
+    ImGuiTextBuffer     Buf;
+    ImGuiTextFilter     Filter;
+    ImVector<int>       LineOffsets;        // Index to lines offset. We maintain this with AddLog() calls, allowing us to have a random access on lines
+    bool                AutoScroll;     // Keep scrolling if already at the bottom
+
+    ExampleAppLog()
+    {
+        AutoScroll = true;
+        Clear();
+    }
+
+    void Clear()
+    {
+        Buf.clear();
+        LineOffsets.clear();
+        LineOffsets.push_back(0);
+    }
+
+    void AddLog(const char* fmt, ...) IM_FMTARGS(2)
+    {
+        int old_size = Buf.size();
+        va_list args;
+        va_start(args, fmt);
+        Buf.appendfv(fmt, args);
+        va_end(args);
+        for (int new_size = Buf.size(); old_size < new_size; old_size++)
+            if (Buf[old_size] == '\n')
+                LineOffsets.push_back(old_size + 1);
+    }
+
+    void Draw()
+    {
+        if (ImGui::BeginPopup("Options"))
+        {
+            ImGui::Checkbox("Auto-scroll", &AutoScroll);
+            ImGui::EndPopup();
+        }
+
+        if (ImGui::Button("Options"))
+            ImGui::OpenPopup("Options");
+        ImGui::SameLine();
+        bool clear = ImGui::Button("Clear");
+        ImGui::SameLine();
+        bool copy = ImGui::Button("Copy");
+        ImGui::SameLine();
+        Filter.Draw("Filter", -100.0f);
+
+        ImGui::Separator();
+        ImGui::BeginChild("scrolling", ImVec2(0, 0), false, ImGuiWindowFlags_HorizontalScrollbar);
+
+        if (clear)
+            Clear();
+        if (copy)
+            ImGui::LogToClipboard();
+
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
+        const char* buf = Buf.begin();
+        const char* buf_end = Buf.end();
+        if (Filter.IsActive())
+        {
+            for (int line_no = 0; line_no < LineOffsets.Size; line_no++)
+            {
+                const char* line_start = buf + LineOffsets[line_no];
+                const char* line_end = (line_no + 1 < LineOffsets.Size) ? (buf + LineOffsets[line_no + 1] - 1) : buf_end;
+                if (Filter.PassFilter(line_start, line_end))
+                    ImGui::TextUnformatted(line_start, line_end);
+            }
+        }
+        else
+        {
+            ImGuiListClipper clipper;
+            clipper.Begin(LineOffsets.Size);
+            while (clipper.Step())
+            {
+                for (int line_no = clipper.DisplayStart; line_no < clipper.DisplayEnd; line_no++)
+                {
+                    const char* line_start = buf + LineOffsets[line_no];
+                    const char* line_end = (line_no + 1 < LineOffsets.Size) ? (buf + LineOffsets[line_no + 1] - 1) : buf_end;
+                    ImGui::TextUnformatted(line_start, line_end);
+                }
+            }
+            clipper.End();
+        }
+        ImGui::PopStyleVar();
+
+        if (AutoScroll && ImGui::GetScrollY() >= ImGui::GetScrollMaxY())
+            ImGui::SetScrollHereY(1.0f);
+
+        ImGui::EndChild();
+    }
+};
+
+void DrawTableInfo(LPDIRECT3DDEVICE9 g_pd3dDevice, Table table)
+{
+    ImGui::Columns(2, "Info", false);
+
+    ImGui::Text("Table Name: %s", table.name);
+    ImGui::Text("Cards: %i", table.cards_on_display_count);
+    ImGui::Text("Pot: %i", table.pot_size);
+    ImGui::Text("Dealer Player ID: %i", table.button_id);
+    ImGui::Text("Current Player ID: %i", table.turn_id);
+
+    ImGui::Text("Ante %i, Small Blind %i, Big Blind %i", table.ante, table.small_blind, table.big_blind);
+
+    ImGui::NextColumn();
+
+    for (std::size_t i = 0; i < table.cards.size(); ++i)
+    {
+        Card card = table.cards.at(i);
+
+        //printf("num type %i %i\n", card.number, card.type);
+
+        ImGui::Image((void*)GetCardTexture(g_pd3dDevice, card.number, card.type), ImVec2(134 / 3, 186 / 3));
+
+        if (i != 4)
+            ImGui::SameLine();
+    }
+       
+    /*
+    for (auto& card : table.cards) {
+        ImGui::Image((void*)GetCardTexture(g_pd3dDevice, card.number, card.type), ImVec2(134 / 3, 186 / 3));
+
+        if (i != 4)
+            ImGui::SameLine();
+    }
+    */
+
+    /*
     std::vector<Player> players;
     std::vector<Card> cards;
 
@@ -282,16 +413,7 @@ void DrawTableInfo(LPDIRECT3DDEVICE9 g_pd3dDevice, uint32_t table, uint32_t tabl
     uint32_t dealer_player_id = mem->Read<uint32_t>(table + 0xF20);
     uint32_t current_player_id = mem->Read<uint32_t>(table + 0xF24);
 
-    ImGui::Columns(2, "Info", false);
-
-    ImGui::Text("Table Name: %s", table_name);
-
-    ImGui::Text("Cards: %i", cards_on_display_count);
-    ImGui::Text("Pot: %i", pot_size);
-
-    ImGui::Text("Dealer Player ID: %i", dealer_player_id);
-    ImGui::Text("Current Player ID: %i", current_player_id);
-
+    
     uint32_t ante = mem->Read<uint32_t>(table_client_data + 0x298);
     uint32_t small_blind = mem->Read<uint32_t>(table_client_data + 0xEC);
     uint32_t big_blind = mem->Read<uint32_t>(table_client_data + 0xF0);
@@ -377,91 +499,57 @@ void DrawTableInfo(LPDIRECT3DDEVICE9 g_pd3dDevice, uint32_t table, uint32_t tabl
         ImGui::NextColumn();
     }
 
-    /*
-    std::string player_name = "greenarr0528";
-
-    auto it = std::find_if(players.begin(), players.end(), [&player_name](const Player& obj) {return obj.name == player_name; });
-
-    if (it != players.end())
-    {
-        auto index = std::distance(players.begin(), it);
-
-        Player current_player = players.at(index);
-
-        if (current_player.first_card_number != 0 && current_player.second_card_number != 0)
-        {
-            std::string my_hand = pp_card(current_player.first_card_number, current_player.first_card_type) + pp_card(current_player.second_card_number, current_player.second_card_type);
-            std::string table_hand;
-
-            for (Card& card : cards)
-            {
-                if (card.number != 0)
-                {
-                    table_hand += pp_card(card.number, card.type);
-                }
-            }
-
-            //printf("[my_hand] %s\n", my_hand.c_str());
-            //printf("[table_hand] %s\n", table_hand.c_str());
-
-            float equity = GetEquity(my_hand, players.size() - 1, table_hand);
-            printf("[equity] %f\n", equity);
-        }
-    }
-    */
-
     ImGui::Columns(1);
     ImGui::Separator();
 
+    static ExampleAppLog log;
+
+    // For the demo: add a debug button _BEFORE_ the normal log window contents
+    // We take advantage of a rarely used feature: multiple calls to Begin()/End() are appending to the _same_ window.
+    // Most of the contents of the window will be added by the log.Draw() call.
+    //ImGui::SetNextWindowSize(ImVec2(500, 400), ImGuiCond_FirstUseEver);
+    
+    if (ImGui::SmallButton("[Debug] Add 5 entries"))
+    {
+        for (int n = 0; n < 5; n++)
+        {
+            log.AddLog("Hello\n");
+        }
+    }
+    
+    // Actually call in the regular Log helper (which will Begin() into the same window as we just did)
+    log.Draw();
+
     players.clear();
     cards.clear();
+    */
 }
 
-std::vector<uintptr_t> tables;
-
-void Draw(LPDIRECT3DDEVICE9 g_pd3dDevice)
+void Draw(Game* game, LPDIRECT3DDEVICE9 g_pd3dDevice)
 {
-    std::vector<std::string> table_names;
-
     if (do_once) {
         LoadImages(g_pd3dDevice);
-        //1f72f10 : fb2f10 : Table::LobbyTableData2
-        tables = mem->FindReferences("\x10\x2F\xF7\x01\x01", "xxxxx", 100);
         do_once = false;
     }
 
     ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(width, height), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(width, height - 40), ImGuiCond_FirstUseEver);
 
     ImGui::Begin("##Backbuffer", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize);
     {
         ImGuiTabBarFlags tab_bar_flags = ImGuiTabBarFlags_None;
         if (ImGui::BeginTabBar("MyTabBar", tab_bar_flags))
         {
-            for (auto& table : tables) {
-                uintptr_t table_client_data = mem->Read<uintptr_t>(table - 0x14);
-
-                char table_name[15];
-                uint32_t table_name_ptr = mem->Read<uint32_t>(table_client_data + 0xC4);
-                mem->ReadBuffer(table_name_ptr, &table_name, sizeof(table_name));
-
-                if (std::find(table_names.begin(), table_names.end(), table_name) != table_names.end()) {
-                    break;
-                }
-                else {
-                    table_names.push_back(table_name);
-                }
-
-                if (ImGui::BeginTabItem(table_name))
+            for (auto& table : game->tables) {
+                if (ImGui::BeginTabItem(table.name))
                 {
-                    DrawTableInfo(g_pd3dDevice, table, table_client_data, table_name);
+                    DrawTableInfo(g_pd3dDevice, table);
 
                     ImGui::EndTabItem();
                 }
             }
             ImGui::EndTabBar();
         }
-        table_names.empty();
     }
     ImGui::End();
 

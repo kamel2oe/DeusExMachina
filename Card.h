@@ -1,23 +1,15 @@
+#pragma once
 #include <cstdint>
 
 class Card
 {
-    uintptr_t base;
-    Memory* mem;
 public:
+    uint32_t card_data;
     int number;
     int type;
 
-    Card(Memory* memory, uintptr_t card_address)
-    {
-        mem = memory;
-        base = card_address;
-        Read();
-    }
+    Card(uint32_t card_data);
+    ~Card();
 
-    void Read()
-    {
-        number = mem->Read<int>(base);
-        type = mem->Read<int>(base + 0x4);
-    }
+    void Read();
 };
