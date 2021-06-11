@@ -1,0 +1,19 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "C/C++ Runner: Debug Session",
+      "type": "cppdbg",
+      "request": "launch",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "c:\\Users\\kamel\\Documents\\GitHub\\DeusExMachina",
+      "environment": [],
+      "program": "c:\\Users\\kamel\\Documents\\GitHub\\DeusExMachina\\build\\Debug\\outDebug",
+      "internalConsoleOptions": "openOnSessionStart",
+      "MIMode": "",
+      "miDebuggerPath": "",
+      "externalConsole": false
+    }
+  ]
+}
